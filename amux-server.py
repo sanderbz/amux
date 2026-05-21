@@ -16272,7 +16272,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <form class="channel-input-row" onsubmit="event.preventDefault(); channelSend();">
       <textarea id="channel-input" class="channel-input" placeholder="Message..." rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();channelSend();}"></textarea>
-      <button type="submit" class="btn primary" id="channel-send-btn">Send</button>
+      <button type="submit" class="btn-ios btn-ios-primary" id="channel-send-btn">Send</button>
     </form>
   </div>
 </div>
