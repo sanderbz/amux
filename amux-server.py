@@ -10104,6 +10104,46 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     #peek-overlay.focus-shell.active { left: 0; }
   }
 
+  /* ── HARD OVERRIDES so legacy chrome inside focus-shell stays hidden ── */
+  #peek-overlay.focus-shell .legacy-peek-tabs,
+  #peek-overlay.focus-shell .legacy-peek-dir-bar,
+  #peek-overlay.focus-shell .legacy-focus-bar,
+  #peek-overlay.focus-shell .legacy-peek-chips,
+  #peek-overlay.focus-shell #peek-cmd-toggle,
+  #peek-overlay.focus-shell .peek-attach-btn,
+  #peek-overlay.focus-shell .send-split,
+  #peek-overlay.focus-shell #peek-search-wrap:not(.open) {
+    display: none !important;
+  }
+  /* peek-focus mode still surfaces the legacy minimal bar */
+  #peek-overlay.focus-shell.peek-focus .legacy-focus-bar { display: flex !important; }
+
+  /* The legacy .overlay-status timestamp line is killed entirely */
+  #peek-overlay.focus-shell #peek-status { display: none !important; }
+
+  /* Force the focus-header to render (defensive against any 1px-tall miscalc) */
+  #peek-overlay.focus-shell .focus-header {
+    min-height: 44px;
+    display: grid !important;
+  }
+  #peek-overlay.focus-shell.peek-focus .focus-header { display: none !important; }
+
+  /* Terminal panel must fill canvas */
+  #peek-overlay.focus-shell #peek-terminal-panel {
+    flex: 1; min-height: 0;
+    display: flex !important; flex-direction: column;
+  }
+  #peek-overlay.focus-shell .focus-terminal-wrap {
+    flex: 1; min-height: 0; position: relative;
+  }
+  /* Make absolutely-positioned terminal scroll inside its wrap */
+  #peek-overlay.focus-shell #peek-body.focus-terminal {
+    position: absolute !important; inset: 0 !important;
+  }
+
+  /* Hide the legacy .overlay-body padding so our focus-terminal styles win */
+  #peek-overlay.focus-shell #peek-body.overlay-body { background: var(--bg-base) !important; }
+
   /* ── View Transitions API: card → focus morph ── */
   @supports (view-transition-name: foo) {
     ::view-transition-old(focus-card),
