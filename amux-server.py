@@ -18062,11 +18062,11 @@ function render() {
       el.innerHTML = '<div class="empty"><span class="loading-spinner"></span>Connecting to server…</div>';
     } else {
       el.innerHTML =
-        '<div class="sv-empty">' +
-          '<div class="sv-empty-icon"><i data-lucide="layers"></i></div>' +
+        '<div class="sv-empty" role="region" aria-label="No sessions yet">' +
+          '<div class="sv-empty-icon" aria-hidden="true"><i data-lucide="layers"></i></div>' +
           '<h3>No sessions yet</h3>' +
           '<p>Start a tmux-backed Claude session and it will appear here. They keep running even when you close the tab.</p>' +
-          '<button class="sv-empty-cta" onclick="openCreate()"><i data-lucide="plus"></i> Start a session</button>' +
+          '<button class="sv-empty-cta" onclick="openCreate()"><i data-lucide="plus" aria-hidden="true"></i> Start a session</button>' +
           (!online ? '<p style="color:var(--tint-orange);">You\'re offline — sessions created now will sync when connected.</p>' : '') +
         '</div>';
       try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch(e) {}
