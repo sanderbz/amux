@@ -35870,7 +35870,21 @@ async function _jrnlSaveConfig() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       const tok = (typeof _authToken !== 'undefined' && _authToken) ? _authToken : '';
       const qs = tok ? ('?_token=' + encodeURIComponent(tok)) : '';
-      const url = proto + '://' + location.host + '/ws/sessions/'
+      // If the page was loaded through an HTTP/2 reverse proxy (e.g. Tailscale
+      // serve on :443 fronting the python listener on :8822), the browser
+      // cannot upgrade WS over h2 (RFC 6455 requires HTTP/1.1; RFC 8441 not
+      // implemented in BaseHTTPServer). Side-step the proxy by talking
+      // directly to the python listener on its real port (HTTP/1.1).
+      // _AMUX_SERVER_PORT is injected by the bootstrap and reflects the actual
+      // python listener port. If the page is already on that port, use
+      // location.host as-is. Otherwise (proxy in front), swap to
+      // hostname:AMUX_SERVER_PORT for the WS endpoint only.
+      const pagePort = location.port || (location.protocol === 'https:' ? '443' : '80');
+      const serverPort = String(window._AMUX_SERVER_PORT || '');
+      const wsHost = (serverPort && serverPort !== pagePort)
+        ? (location.hostname + ':' + serverPort)
+        : location.host;
+      const url = proto + '://' + wsHost + '/ws/sessions/'
                   + encodeURIComponent(this.name) + qs;
       let ws;
       try {
