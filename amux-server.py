@@ -22138,6 +22138,9 @@ async function refreshPeek() {
     // Cache peek output for offline browsing
     _idb.set('peek_' + peekSession, { output, time: Date.now() });
   } catch(e) {
+    if (_isTransientFetchError(e)) return;  // swallow reload/abort races
+    // Bad JSON (server returned 502 + empty body) — log but don't surface.
+    if (e instanceof SyntaxError) { return; }
     console.error('peek:', e);
     // Offline: load cached peek
     if (!lastPeekHTML || lastPeekHTML.includes('Loading...')) {
