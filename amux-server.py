@@ -36030,6 +36030,22 @@ p{{color:#888;margin:12px 0 28px;font-size:0.9rem;line-height:1.5}}
                 # 409 = session exists but is not running (user-caused, not a server error)
                 code = 200 if ok else (409 if msg == "not running" else 500)
                 return self._json({"ok": ok, "message": msg}, code)
+            if action == "paste":
+                # Custom extension: paste literal text into session without auto-Enter.
+                # Body: {"text": str, "submit": bool (default false)}
+                body = self._read_body()
+                text = body.get("text", "")
+                if not text:
+                    return self._json({"error": "missing 'text'"}, 400)
+                if not is_running(name):
+                    return self._json({"error": "not running"}, 409)
+                subprocess.run(["tmux", "send-keys", "-t", tmux_target(name), "-l", text],
+                               capture_output=True, timeout=5)
+                if body.get("submit"):
+                    subprocess.run(["tmux", "send-keys", "-t", tmux_target(name), "Enter"],
+                                   capture_output=True, timeout=5)
+                _update_meta(name, last_send=int(time.time()))
+                return self._json({"ok": True, "pasted": len(text)})
             if action == "keys":
                 body = self._read_body()
                 keys = body.get("keys", "")
