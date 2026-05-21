@@ -8565,15 +8565,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     }
     .card:hover {
       transform: scale(1.025);
-      box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+      box-shadow: var(--shadow-md);
       z-index: 2;
     }
     .card:active { transform: scale(0.992); }
     .card.hover-ready {
-      box-shadow: 0 10px 32px rgba(10,132,255,0.18), 0 0 0 1px rgba(10,132,255,0.35);
+      box-shadow: var(--shadow-md),
+                  0 0 0 1px color-mix(in srgb, var(--tint-blue) 35%, transparent);
     }
     .card.hover-typing {
-      box-shadow: 0 0 0 2px #0a84ff, 0 12px 36px rgba(10,132,255,0.28);
+      box-shadow: 0 0 0 2px var(--tint-blue),
+                  var(--shadow-lg);
       transform: scale(1.025);
     }
   }
@@ -8614,22 +8616,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .card.hover-typing .card-hover-hint .hover-label { display: none; }
 
   .card.attention-waiting {
-    border-color: rgba(10,132,255,0.45);
+    border-color: color-mix(in srgb, var(--tint-blue) 45%, transparent);
     animation: card-attention-pulse 2.6s ease-in-out infinite;
   }
   @keyframes card-attention-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(10,132,255, 0.0); }
-    50%      { box-shadow: 0 0 0 6px rgba(10,132,255, 0.20); }
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tint-blue) 20%, transparent); }
   }
   .card.attention-waiting:hover,
   .card.attention-waiting.hover-typing { animation: none; }
   @media (prefers-reduced-motion: reduce) {
-    .card.attention-waiting { animation: none; box-shadow: 0 0 0 2px rgba(10,132,255,0.35); }
+    .card.attention-waiting { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--tint-blue) 35%, transparent); }
   }
 
   .card.attention-error {
-    border-color: #f85149;
-    box-shadow: 0 0 0 1px rgba(248,81,73,0.35);
+    border-color: var(--tint-red);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint-red) 35%, transparent);
   }
 
   @media (max-width: 600px) {
