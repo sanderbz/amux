@@ -18596,7 +18596,7 @@ function _renderTabCustomizerMenu() {
   // Presets section
   html += '<div class="tab-preset-section" onclick="event.stopPropagation()" style="border-top:1px solid var(--border);margin-top:6px;padding:6px 14px 4px;">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-  html += '<span style="font-size:0.75rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em;">Presets</span>';
+  html += '<span style="font-size:0.75rem;font-weight:600;color:var(--label-tertiary);letter-spacing:0;">Presets</span>';
   html += '<button onclick="saveLayoutPreset()" style="font-size:0.75rem;color:var(--accent);background:none;border:none;cursor:pointer;padding:2px 4px;">+ Save current</button>';
   html += '</div>';
   html += '<div id="preset-list" style="font-size:0.82rem;"></div>';
@@ -37259,9 +37259,12 @@ class CCHandler(BaseHTTPRequestHandler):
         """Return True if request is authorized. Sends 401 and returns False if not."""
         if not AUTH_TOKEN:
             return True
-        # Localhost always bypasses auth (local sessions, CLI tools)
+        # Localhost bypass — but NEVER on /api/* or /ws/* paths. Tailscale serve
+        # forwards tailnet traffic through localhost, so a blanket bypass would let
+        # any tailnet user hit privileged endpoints (incl. tmux exec) unauthenticated.
+        # CLI tools that hit /api/* must use the auth token (~/.amux/auth_token).
         ip = self.client_address[0] if self.client_address else ""
-        if ip in ("127.0.0.1", "::1"):
+        if ip in ("127.0.0.1", "::1") and not path.startswith("/api/") and not path.startswith("/ws/"):
             return True
         if path in _PUBLIC_PATHS or any(path.startswith(p) for p in _PUBLIC_PREFIXES):
             return True
