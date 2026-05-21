@@ -8563,6 +8563,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     margin-left: 4px; max-width: 18ch; overflow: hidden; text-overflow: ellipsis;
     display: inline-block; vertical-align: middle;
   }
+  /* Empty buffer span shouldn't reserve space */
+  .card-hover-hint .hover-buffer:empty { display: none; }
+  /* When typing, the "type to send" label collapses so the buffer + arrow lead */
+  .card.hover-typing .card-hover-hint .hover-label { display: none; }
   body.light .card-hover-hint .hover-buffer { color: var(--text, #1f2328); background: rgba(31,35,40,0.06); }
 
   .card.attention-waiting {
@@ -16722,6 +16726,12 @@ window.Palette = {
     const card = document.querySelector('.card[data-session="' + CSS.escape(HoverType.hoveredName) + '"]');
     HoverType.hoveredCard = card;
     if (!card) return;
+    // If the session just stopped between renders, disarm cleanly.
+    if (card.dataset.running !== '1') {
+      _clearArm();
+      HoverType.buffers.set(HoverType.hoveredName, '');
+      return;
+    }
     if (HoverType.armed) {
       card.classList.add('hover-ready');
       _renderBuffer(card, HoverType.hoveredName);
@@ -18046,7 +18056,7 @@ function render() {
           <button class="btn primary" onclick="sendFromInput('${s.name}')">Send</button>
         </div>` : ''}
       </div>
-      ${s.running ? `<div class="card-hover-hint" aria-hidden="true"><span class="hover-label">type to send</span><span class="hover-buffer"></span> <span class="hover-arrow">&rarr;</span></div>` : ''}
+      ${s.running ? `<div class="card-hover-hint" aria-hidden="true"><span class="hover-label">type to send</span><span class="hover-buffer"></span><span class="hover-arrow"> &rarr;</span></div>` : ''}
     </div>`;
   }
 
@@ -36065,11 +36075,16 @@ def _ws_send(sock, payload: bytes, opcode: int = _WS_OP_BIN) -> None:
     sock.sendall(_ws_build_frame(payload, opcode))
 
 
-def _ws_recv_exact(sock, n: int) -> bytes:
-    """Read exactly n bytes from sock or raise ConnectionError on EOF."""
+def _ws_recv_exact(reader, n: int) -> bytes:
+    """Read exactly n bytes from `reader` or raise ConnectionError on EOF.
+    `reader` must expose .read(n) — works with BaseHTTPRequestHandler's
+    self.rfile (a BufferedReader). For raw sockets, wrap with
+    socket.makefile('rb') first."""
+    if n == 0:
+        return b""
     buf = bytearray()
     while len(buf) < n:
-        chunk = sock.recv(n - len(buf))
+        chunk = reader.read(n - len(buf))
         if not chunk:
             raise ConnectionError("ws: peer closed")
         buf.extend(chunk)
