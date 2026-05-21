@@ -9576,7 +9576,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .overlay.vv-compact .peek-attach-btn { min-height: 30px; }
 
   /* Peek command bar */
-  .peek-cmd-bar { flex-shrink: 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .peek-cmd-bar { flex-shrink: 0; padding-bottom: max(env(safe-area-inset-bottom), env(keyboard-inset-height, 0px), 8px); }
   .peek-cmd-toggle {
     width: 100%; padding: 6px; border: none; background: transparent;
     color: var(--dim); font-size: 0.75rem; cursor: pointer; text-align: center;
@@ -10058,7 +10058,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     -webkit-backdrop-filter: blur(40px) saturate(180%);
             backdrop-filter: blur(40px) saturate(180%);
     border-top: 0.5px solid var(--sep-non-opaque);
-    padding: var(--s-2) var(--s-3) max(var(--s-2), env(safe-area-inset-bottom));
+    padding: var(--s-2) var(--s-3) max(env(safe-area-inset-bottom), env(keyboard-inset-height, 0px), var(--s-2));
     display: flex; flex-direction: column; gap: var(--s-2);
     /* JS will translateY to ride above the iOS keyboard */
     transform: translateY(0);
