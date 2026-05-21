@@ -22026,6 +22026,177 @@ function _syncPeekOverlayToVisualViewport() {
     }
   };
 
+  // ── Dictate (P1-5) ──────────────────────────────────────────────────
+  // Voice dictation via Web Speech API. Live-transcribed text flows into
+  // #peek-cmd-input (we do NOT auto-send — the user reviews and taps Send).
+  // Item is hidden in the + sheet if SpeechRecognition is unsupported.
+  //
+  // iOS Safari quirks handled:
+  //  - Use webkitSpeechRecognition prefix.
+  //  - `continuous = true` is unreliable on Safari; we restart on `onend`
+  //    while the user-visible state is still 'open' so the session feels
+  //    continuous (until they tap Stop / Cancel).
+  //  - First call triggers the iOS mic permission prompt; we surface the
+  //    `not-allowed` error as a toast and close the overlay.
+  window.AmuxDictate = (function() {
+    let _rec = null;
+    let _open = false;          // overlay shown + we want recognition active
+    let _userStopped = false;   // user clicked Stop/Cancel — don't auto-restart
+    let _base = '';             // input text BEFORE this dictation began
+    let _finalChunk = '';       // committed final-results accumulated this session
+
+    function isSupported() {
+      return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    }
+
+    function _statusEl() { return document.getElementById('dictate-status'); }
+    function _transcriptEl() { return document.getElementById('dictate-transcript'); }
+    function _overlay() { return document.getElementById('dictate-overlay'); }
+    function _input() { return document.getElementById('peek-cmd-input'); }
+
+    function _setStatus(msg) {
+      const s = _statusEl();
+      if (s) s.textContent = msg || '';
+    }
+    function _showOverlay() {
+      const ov = _overlay();
+      if (!ov) return;
+      ov.setAttribute('data-open', 'true');
+      ov.setAttribute('aria-hidden', 'false');
+      const t = _transcriptEl(); if (t) t.innerHTML = '';
+      if (window.lucide && lucide.createIcons) { try { lucide.createIcons(); } catch (e) {} }
+    }
+    function _hideOverlay() {
+      const ov = _overlay();
+      if (!ov) return;
+      ov.setAttribute('data-open', 'false');
+      ov.setAttribute('aria-hidden', 'true');
+    }
+
+    function _writeToInput(finalText, interimText) {
+      const inp = _input();
+      if (!inp) return;
+      const combined = (_base + ' ' + (finalText || '') + ' ' + (interimText || '')).replace(/\s+/g, ' ').trim();
+      inp.value = combined;
+      if (typeof autoGrow === 'function') autoGrow(inp);
+      if (typeof _dockSyncSend === 'function') _dockSyncSend();
+    }
+    function _writeToTranscript(finalText, interimText) {
+      const el = _transcriptEl();
+      if (!el) return;
+      const safeF = (finalText || '').replace(/</g, '&lt;');
+      const safeI = (interimText || '').replace(/</g, '&lt;');
+      el.innerHTML = safeF + (safeI ? '<span class="interim"> ' + safeI + '</span>' : '');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function _newRecognizer() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const r = new SR();
+      // Keep it short-window-friendly for iOS; we re-arm on `onend` to fake
+      // continuous behaviour while the overlay is open.
+      r.continuous = true;
+      r.interimResults = true;
+      try { r.lang = (navigator.language || 'en-US'); } catch (e) { r.lang = 'en-US'; }
+      r.maxAlternatives = 1;
+
+      r.onstart = () => { _setStatus('Listening — speak now.'); };
+      r.onerror = (e) => {
+        const err = e && e.error;
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          showToast('Microphone permission denied');
+          _userStopped = true;
+          cancel();
+          return;
+        }
+        if (err === 'no-speech') {
+          _setStatus('No speech detected — keep talking.');
+          return;
+        }
+        if (err === 'aborted') return;
+        _setStatus('Error: ' + err);
+      };
+      r.onresult = (ev) => {
+        let interim = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          const txt = (res[0] && res[0].transcript) || '';
+          if (res.isFinal) _finalChunk += (txt + ' ');
+          else interim += txt;
+        }
+        _writeToInput(_finalChunk, interim);
+        _writeToTranscript(_finalChunk, interim);
+      };
+      r.onend = () => {
+        // iOS Safari ends naturally on every pause. If the user hasn't
+        // stopped, re-arm so dictation feels continuous.
+        if (_open && !_userStopped) {
+          try { r.start(); } catch (e) { /* already started — ignore */ }
+        }
+      };
+      return r;
+    }
+
+    function start() {
+      if (!isSupported()) {
+        showToast('Dictation not supported on this device');
+        return;
+      }
+      if (_open) return;
+      const inp = _input();
+      if (!inp) {
+        showToast('No active session to dictate into');
+        return;
+      }
+      _open = true;
+      _userStopped = false;
+      _finalChunk = '';
+      _base = inp.value || '';
+      _showOverlay();
+      _setStatus('Requesting microphone…');
+      try {
+        _rec = _newRecognizer();
+        _rec.start();
+      } catch (e) {
+        showToast('Dictation failed to start: ' + (e.message || e));
+        _open = false;
+        _hideOverlay();
+      }
+    }
+    function stop() {
+      // Keep transcribed text in the input.
+      _userStopped = true;
+      _open = false;
+      if (_rec) {
+        try { _rec.stop(); } catch (e) {}
+        _rec = null;
+      }
+      _hideOverlay();
+      const inp = _input();
+      if (inp) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
+    }
+    function cancel() {
+      // Roll back the input to what it was before dictation started.
+      _userStopped = true;
+      _open = false;
+      if (_rec) {
+        try { _rec.abort(); } catch (e) {
+          try { _rec.stop(); } catch (e2) {}
+        }
+        _rec = null;
+      }
+      const inp = _input();
+      if (inp) {
+        inp.value = _base;
+        if (typeof autoGrow === 'function') autoGrow(inp);
+        if (typeof _dockSyncSend === 'function') _dockSyncSend();
+      }
+      _hideOverlay();
+    }
+
+    return { isSupported, start, stop, cancel };
+  })();
+
   // ── Snippets (P1-1) ─────────────────────────────────────────────────
   // Saved commands rendered inside the + sheet, above Quick commands.
   // Storage: localStorage["amuxSnippets"] = JSON array of
