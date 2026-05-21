@@ -13440,22 +13440,31 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </div>
 
 <!-- Torrents view -->
-<div id="torrents-view" style="display:none;flex-direction:column;gap:12px;padding:0;">
-  <div style="display:flex;align-items:center;gap:8px;padding:0 0 4px 0;flex-wrap:wrap;">
-    <input id="torrent-magnet" type="text" placeholder="Paste magnet link or torrent URL…" style="flex:1;min-width:200px;font-size:0.85rem;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;" autocomplete="off">
-    <button onclick="_torrentAdd()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;white-space:nowrap;">Add torrent</button>
-    <button onclick="_torrentBrowseDir()" style="padding:8px 12px;background:var(--surface);color:var(--dim);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;cursor:pointer;" title="Browse download folder">&#x1F4C2;</button>
-    <button onclick="_torrentShowSettings()" style="padding:8px 12px;background:var(--surface);color:var(--dim);border:1px solid var(--border);border-radius:6px;font-size:0.85rem;cursor:pointer;" title="Settings">&#x2699;</button>
+<div id="torrents-view" style="display:none;flex-direction:column;gap:var(--s-3);padding:var(--s-3) var(--s-4);">
+  <div style="display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;">
+    <input id="torrent-magnet" type="text" placeholder="Paste magnet link or torrent URL…" class="input-ios" style="flex:1;min-width:200px;" autocomplete="off">
+    <button class="btn-ios btn-ios-primary" onclick="_torrentAdd()" style="white-space:nowrap;">
+      <i data-lucide="download" style="width:16px;height:16px;"></i> Add torrent
+    </button>
+    <button class="btn-ios" onclick="_torrentBrowseDir()" aria-label="Browse download folder" title="Browse download folder" style="min-width:44px;padding:0 var(--s-3);">
+      <i data-lucide="folder-open" style="width:16px;height:16px;"></i>
+    </button>
+    <button class="btn-ios" onclick="_torrentShowSettings()" aria-label="Settings" title="Settings" style="min-width:44px;padding:0 var(--s-3);">
+      <i data-lucide="settings" style="width:16px;height:16px;"></i>
+    </button>
   </div>
-  <div id="torrent-settings" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <label style="font-size:0.8rem;color:var(--dim);white-space:nowrap;">Download to:</label>
-      <input id="torrent-dir" type="text" style="flex:1;font-size:0.82rem;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'JetBrains Mono',monospace;" autocomplete="off">
-      <button onclick="_torrentSaveDir()" style="padding:6px 12px;background:var(--accent);color:#fff;border:none;border-radius:4px;font-size:0.8rem;cursor:pointer;">Save</button>
+  <div id="torrent-settings" class="surface" style="display:none;padding:var(--s-3) var(--s-4);">
+    <div style="display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;">
+      <label style="font-size:var(--text-footnote);color:var(--label-secondary);white-space:nowrap;font-weight:var(--weight-medium);">Download to:</label>
+      <input id="torrent-dir" type="text" class="input-ios" style="flex:1;min-width:200px;font-family:var(--font-mono);font-size:var(--text-footnote);" autocomplete="off">
+      <button class="btn-ios btn-ios-primary" onclick="_torrentSaveDir()" style="min-height:36px;padding:0 var(--s-3);font-size:var(--text-footnote);">Save</button>
     </div>
   </div>
-  <div id="torrent-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;"></div>
-  <div id="torrent-empty" style="color:var(--dim);font-size:0.85rem;text-align:center;padding:40px;">No torrents. Paste a magnet link above to start downloading.</div>
+  <div id="torrent-list" style="display:flex;flex-direction:column;gap:var(--s-2);overflow-y:auto;flex:1;"></div>
+  <div id="torrent-empty" style="color:var(--label-secondary);font-size:var(--text-subhead);text-align:center;padding:var(--s-12) var(--s-5);display:flex;flex-direction:column;align-items:center;gap:var(--s-3);">
+    <i data-lucide="download-cloud" style="width:36px;height:36px;color:var(--label-tertiary);"></i>
+    <div>No torrents yet.<br>Paste a magnet link above to start downloading.</div>
+  </div>
 </div>
 
 <!-- Terminal view -->
@@ -15632,18 +15641,32 @@ async function fetchSessions() {
 // ═══════ RENDERING ═══════
 function updatePeekStatus() {
   const el = document.getElementById('peek-session-status');
-  if (!el || !peekSession) { if (el) el.innerHTML = ''; return; }
+  if (!el || !peekSession) { if (el) { el.innerHTML = ''; el.removeAttribute('data-status'); } return; }
   const s = sessions.find(s => s.name === peekSession);
-  if (!s) { el.innerHTML = ''; return; }
-  let badge = '';
-  if (s.status === 'active')  badge = '<span class="status-badge active">working</span>';
-  else if (s.status === 'waiting') badge = '<span class="status-badge waiting">needs input</span>';
-  else if (s.status === 'idle')    badge = '<span class="status-badge idle">idle</span>';
-  else if (!s.running)             badge = '<span class="status-badge" style="background:rgba(255,255,255,0.06);color:var(--dim);border:1px solid var(--border);">stopped</span>';
-  if (s.rate_limited_until) {
-    badge += `<span class="status-badge rate-limited" style="margin-left:6px;">Rate-limited until ${_fmtClockTime(s.rate_limited_until)}</span>`;
+  if (!s) { el.innerHTML = ''; el.removeAttribute('data-status'); return; }
+  // In the new focus-shell, the element is a status DOT — no badge HTML, just data-status.
+  const ov = document.getElementById('peek-overlay');
+  const isFocusShell = ov && ov.classList.contains('focus-shell');
+  if (isFocusShell) {
+    let status = 'idle';
+    if (s.rate_limited_until && s.rate_limited_until * 1000 > Date.now()) status = 'rate-limited';
+    else if (s.steering && s.steering.length) status = 'steering';
+    else if (s.status === 'active' || s.status === 'running') status = 'running';
+    else if (s.status === 'waiting') status = 'waiting';
+    else if (!s.running) status = 'idle';
+    el.setAttribute('data-status', status);
+    el.innerHTML = '';
+  } else {
+    let badge = '';
+    if (s.status === 'active')  badge = '<span class="status-badge active">working</span>';
+    else if (s.status === 'waiting') badge = '<span class="status-badge waiting">needs input</span>';
+    else if (s.status === 'idle')    badge = '<span class="status-badge idle">idle</span>';
+    else if (!s.running)             badge = '<span class="status-badge" style="background:rgba(255,255,255,0.06);color:var(--dim);border:1px solid var(--border);">stopped</span>';
+    if (s.rate_limited_until) {
+      badge += `<span class="status-badge rate-limited" style="margin-left:6px;">Rate-limited until ${_fmtClockTime(s.rate_limited_until)}</span>`;
+    }
+    el.innerHTML = badge;
   }
-  el.innerHTML = badge;
   // Update input placeholder based on session state
   const cmdInp = document.getElementById('peek-cmd-input');
   if (cmdInp) {
@@ -18501,6 +18524,15 @@ async function _psfViewFile(filePath) {
 function _syncPeekOverlayToVisualViewport() {
   const ov = document.getElementById('peek-overlay');
   if (!window.visualViewport || !ov) return;
+  // New focus-shell handles keyboard via dock translate (see _dockSyncKeyboard);
+  // skip the legacy inline-size hack so terminal keeps full canvas.
+  if (ov.classList.contains('focus-shell')) {
+    // Make sure no stale inline sizing lingers from older sessions
+    ov.style.top = ''; ov.style.height = ''; ov.style.bottom = ''; ov.style.paddingBottom = '';
+    ov.classList.remove('vv-compact');
+    if (window._dockSyncKeyboard) window._dockSyncKeyboard();
+    return;
+  }
   const vv = window.visualViewport;
   const constrained = vv.height < window.innerHeight * 0.95 || vv.offsetTop > 5;
   if (constrained) {
@@ -18534,6 +18566,478 @@ function _syncPeekOverlayToVisualViewport() {
     setTimeout(_syncPeekOverlayToVisualViewport, 400);
   });
 })();
+
+// ═════════════════════════════════════════════════════════════════════
+// ──  iOS-NATIVE FOCUS MODE — dock/keyboard, sheets, slash menu, etc.
+// ═════════════════════════════════════════════════════════════════════
+(function() {
+  // Track the most-recent send button state so we don't thrash DOM
+  let _lastSendEnabled = null;
+
+  window._dockSyncSend = function _dockSyncSend() {
+    const inp = document.getElementById('peek-cmd-input');
+    const btn = document.getElementById('dock-send');
+    if (!inp || !btn) return;
+    const hasText = inp.value.trim().length > 0;
+    const hasFiles = (window.peekFiles && peekFiles.length > 0);
+    const enable = hasText || hasFiles;
+    if (enable !== _lastSendEnabled) {
+      btn.disabled = !enable;
+      _lastSendEnabled = enable;
+    }
+  };
+
+  window._dockOnInputFocus = function _dockOnInputFocus() {
+    const acc = document.getElementById('focus-accessory');
+    if (acc) acc.hidden = false;
+    // Keep dock above keyboard
+    setTimeout(_dockSyncKeyboard, 80);
+    setTimeout(_dockSyncKeyboard, 320);
+  };
+
+  window._dockOnInputBlur = function _dockOnInputBlur() {
+    const acc = document.getElementById('focus-accessory');
+    // Small delay so tapping a kbd button (which steals focus briefly) doesn't
+    // hide the row before the click fires
+    setTimeout(() => {
+      const stillFocused = document.activeElement === document.getElementById('peek-cmd-input');
+      if (!stillFocused && acc) acc.hidden = true;
+    }, 150);
+    setTimeout(_dockSyncKeyboard, 80);
+  };
+
+  // Dock-rides-above-keyboard: instead of resizing the whole overlay (which
+  // shrinks the terminal), keep overlay 100%, just translate the dock UP by
+  // the keyboard overlap. Layout-wise the terminal scrolls naturally.
+  function _dockSyncKeyboard() {
+    const vv = window.visualViewport;
+    const dock = document.getElementById('peek-dock');
+    if (!dock || !vv) return;
+    // How many pixels of layout-viewport are *below* the visualViewport
+    const overlap = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+    dock.style.transform = overlap > 4 ? `translateY(-${overlap}px)` : '';
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _dockSyncKeyboard);
+    window.visualViewport.addEventListener('scroll', _dockSyncKeyboard);
+  }
+  window.addEventListener('resize', _dockSyncKeyboard);
+  window._dockSyncKeyboard = _dockSyncKeyboard;
+
+  // ── Slash menu placement fix: open class added by slashAcUpdate works,
+  //    but we need to make sure the legacy CSS doesn't position it absolutely
+  //    inside the textarea wrapper. We rendered it in .focus-dock (sibling
+  //    of input row), so position:absolute relative to .focus-dock is right.
+
+  // ── Sub-tab labels for the focus sheet ──
+  const FOCUS_SUBTABS = [
+    { id: 'terminal',  label: 'Terminal',  icon: 'terminal' },
+    { id: 'steering',  label: 'Steering',  icon: 'send' },
+    { id: 'issues',    label: 'Issues',    icon: 'circle-dot' },
+    { id: 'git',       label: 'Worktree',  icon: 'git-branch' },
+    { id: 'commits',   label: 'Commits',   icon: 'git-commit' },
+    { id: 'schedules', label: 'Schedules', icon: 'clock' },
+    { id: 'notes',     label: 'Notes',     icon: 'sticky-note' },
+  ];
+
+  // Map status string from session to a data-status the dot understands
+  function _focusStatusFor(sess) {
+    if (!sess) return 'idle';
+    if (sess.rate_limited_until && sess.rate_limited_until * 1000 > Date.now()) return 'rate-limited';
+    if (sess.steering && sess.steering.length) return 'steering';
+    const s = (sess.status || '').toLowerCase();
+    if (s === 'active' || s === 'running') return 'running';
+    if (s === 'waiting') return 'waiting';
+    return 'idle';
+  }
+
+  // Re-syncs the header status dot from the global sessions[] cache.
+  function _focusSyncStatusDot() {
+    const dot = document.getElementById('peek-session-status');
+    if (!dot || !window.peekSession) return;
+    const sess = (window.sessions || []).find(s => s.name === window.peekSession);
+    dot.setAttribute('data-status', _focusStatusFor(sess));
+  }
+  window._focusSyncStatusDot = _focusSyncStatusDot;
+
+  // Render the focus pill (when sub-tab is non-terminal)
+  function _focusUpdateSubtabPill() {
+    const pill = document.getElementById('focus-subtab-pill');
+    const lbl = document.getElementById('focus-subtab-pill-label');
+    const cur = (typeof window._peekTab !== 'undefined' ? window._peekTab : 'terminal');
+    if (cur === 'terminal' || !cur) {
+      if (pill) pill.hidden = true;
+      return;
+    }
+    const item = FOCUS_SUBTABS.find(x => x.id === cur);
+    if (pill && lbl) {
+      pill.hidden = false;
+      lbl.textContent = item ? item.label : cur;
+    }
+  }
+  window._focusUpdateSubtabPill = _focusUpdateSubtabPill;
+
+  // ── Bottom-sheet animation primitives ──
+  function _focusOpenSheet(sheetId) {
+    const sheet = document.getElementById(sheetId);
+    if (!sheet) return;
+    sheet.dataset.state = 'open';
+    sheet.setAttribute('aria-hidden', 'false');
+  }
+  function _focusCloseSheet(sheetId) {
+    const sheet = document.getElementById(sheetId);
+    if (!sheet) return;
+    sheet.dataset.state = 'closed';
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  // ── Public: open the ··· sheet (sub-tabs + actions + model badge) ──
+  window.openFocusSheet = function openFocusSheet() {
+    const list = document.getElementById('focus-sheet-list');
+    if (!list) return;
+    const cur = (typeof window._peekTab !== 'undefined' ? window._peekTab : 'terminal');
+    const sess = (window.sessions || []).find(s => s.name === window.peekSession) || {};
+    let html = '<div class="focus-sheet-section-label">Views</div>';
+    for (const t of FOCUS_SUBTABS) {
+      const badge = (function() {
+        const c = document.getElementById('peek-tab-' + t.id + '-count');
+        if (!c) return '';
+        const txt = (c.textContent || '').trim();
+        if (!txt || txt === '0') return '';
+        return '<span class="focus-sheet-item-badge">' + esc(txt) + '</span>';
+      })();
+      const check = (cur === t.id)
+        ? '<span class="focus-sheet-item-check"><i data-lucide="check"></i></span>'
+        : '';
+      const activeClass = (cur === t.id) ? ' is-active' : '';
+      html += '<li class="focus-sheet-item' + activeClass + '" onclick="focusPickSubtab(\'' + t.id + '\')">'
+            + '  <span class="focus-sheet-item-icon"><i data-lucide="' + t.icon + '"></i></span>'
+            + '  <span class="focus-sheet-item-label">' + esc(t.label) + '</span>'
+            + '  ' + badge + check
+            + '</li>';
+    }
+
+    // Session actions
+    html += '<div class="focus-sheet-divider"></div>';
+    html += '<div class="focus-sheet-section-label">Session</div>';
+
+    if (sess.active_model || sess.provider) {
+      const model = sess.active_model || (sess.provider === 'codex' ? 'gpt-5.5' : 'sonnet');
+      html += '<li class="focus-sheet-item" onclick="closeFocusSheet()">'
+            + '  <span class="focus-sheet-item-icon"><i data-lucide="cpu"></i></span>'
+            + '  <span class="focus-sheet-item-label">Model</span>'
+            + '  <span class="focus-sheet-item-badge">' + esc(model) + '</span>'
+            + '</li>';
+    }
+    html += '<li class="focus-sheet-item" onclick="closeFocusSheet();_focusOpenSearch()">'
+          + '  <span class="focus-sheet-item-icon"><i data-lucide="search"></i></span>'
+          + '  <span class="focus-sheet-item-label">Find in terminal</span>'
+          + '  <span class="focus-sheet-item-badge">⌘F</span>'
+          + '</li>';
+    if (window.peekSessionDir) {
+      html += '<li class="focus-sheet-item" onclick="closeFocusSheet();openExplore(peekSessionDir,peekSession)">'
+            + '  <span class="focus-sheet-item-icon"><i data-lucide="folder-open"></i></span>'
+            + '  <span class="focus-sheet-item-label">Browse files</span>'
+            + '</li>';
+      // Split-pane (desktop)
+      if (window.innerWidth >= 1024) {
+        html += '<li class="focus-sheet-item" onclick="closeFocusSheet();togglePeekSplit()">'
+              + '  <span class="focus-sheet-item-icon"><i data-lucide="panel-right-open"></i></span>'
+              + '  <span class="focus-sheet-item-label">Toggle file pane</span>'
+              + '</li>';
+      }
+    }
+    html += '<li class="focus-sheet-item" onclick="closeFocusSheet();copyPeekContent()">'
+          + '  <span class="focus-sheet-item-icon"><i data-lucide="copy"></i></span>'
+          + '  <span class="focus-sheet-item-label">Copy terminal contents</span>'
+          + '</li>';
+    html += '<li class="focus-sheet-item" onclick="closeFocusSheet();peekDownloadLog()">'
+          + '  <span class="focus-sheet-item-icon"><i data-lucide="download"></i></span>'
+          + '  <span class="focus-sheet-item-label">Download log</span>'
+          + '</li>';
+
+    list.innerHTML = html;
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+    _focusOpenSheet('focus-sheet');
+  };
+  window.closeFocusSheet = function() { _focusCloseSheet('focus-sheet'); };
+
+  // Pick a sub-tab from the sheet
+  window.focusPickSubtab = function focusPickSubtab(id) {
+    _focusCloseSheet('focus-sheet');
+    if (typeof setPeekTab === 'function') setPeekTab(id);
+    setTimeout(_focusUpdateSubtabPill, 30);
+  };
+
+  // ── Dock + sheet (quick actions) ──
+  window.openDockPlusSheet = function openDockPlusSheet() {
+    const list = document.getElementById('dock-plus-sheet-list');
+    if (!list) return;
+    const items = [];
+    items.push({ icon: 'paperclip', label: 'Attach file', onclick: "closeDockPlusSheet();document.getElementById('peek-file-input').click()" });
+    items.push({ icon: 'clipboard', label: 'Paste from clipboard', onclick: "closeDockPlusSheet();_focusPasteFromClipboard()" });
+    items.push({ icon: 'history', label: 'Message history', onclick: "closeDockPlusSheet();openCmdHistoryModal()" });
+
+    // Quick keys / chips
+    items.push({ section: 'Quick commands' });
+    items.push({ icon: 'corner-down-left', label: 'Send "continue"', onclick: "closeDockPlusSheet();peekQuickSend('continue')" });
+    items.push({ icon: 'square-slash', label: '/status', onclick: "closeDockPlusSheet();_focusSlash('/status')" });
+    items.push({ icon: 'square-slash', label: '/model', onclick: "closeDockPlusSheet();_focusSlash('/model')" });
+    items.push({ icon: 'square-slash', label: '/mcp', onclick: "closeDockPlusSheet();_focusSlash('/mcp')" });
+    items.push({ icon: 'eraser', label: '/clear', onclick: "closeDockPlusSheet();_focusSlash('/clear')" });
+    items.push({ icon: 'archive', label: '/compact', onclick: "closeDockPlusSheet();_focusSlash('/compact')" });
+
+    items.push({ section: 'Interrupt' });
+    items.push({ icon: 'octagon-x', label: 'Send Ctrl+C', destructive: true, onclick: "closeDockPlusSheet();peekQuickKeys('C-c')" });
+
+    let html = '';
+    for (const it of items) {
+      if (it.section) {
+        html += '<div class="focus-sheet-section-label">' + esc(it.section) + '</div>';
+        continue;
+      }
+      const cls = 'focus-sheet-item' + (it.destructive ? ' is-destructive' : '');
+      html += '<li class="' + cls + '" onclick="' + it.onclick + '">'
+            + '  <span class="focus-sheet-item-icon"><i data-lucide="' + it.icon + '"></i></span>'
+            + '  <span class="focus-sheet-item-label">' + esc(it.label) + '</span>'
+            + '</li>';
+    }
+    list.innerHTML = html;
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+    _focusOpenSheet('dock-plus-sheet');
+  };
+  window.closeDockPlusSheet = function() { _focusCloseSheet('dock-plus-sheet'); };
+
+  // Quick paste helper
+  window._focusPasteFromClipboard = async function() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { showToast('Clipboard empty'); return; }
+      const inp = document.getElementById('peek-cmd-input');
+      if (!inp) return;
+      const s = inp.selectionStart, e = inp.selectionEnd;
+      const before = inp.value.slice(0, s);
+      const after = inp.value.slice(e);
+      inp.value = before + text + after;
+      inp.selectionStart = inp.selectionEnd = (before + text).length;
+      if (typeof autoGrow === 'function') autoGrow(inp);
+      _dockSyncSend();
+      inp.focus({ preventScroll: true });
+    } catch (e) {
+      showToast('Paste failed: ' + (e.message || e));
+    }
+  };
+
+  window._focusSlash = function(cmd) {
+    const inp = document.getElementById('peek-cmd-input');
+    if (!inp) return;
+    inp.value = cmd;
+    if (typeof autoGrow === 'function') autoGrow(inp);
+    _dockSyncSend();
+    inp.focus({ preventScroll: true });
+  };
+
+  // ── Search bar open/close ──
+  window._focusOpenSearch = function() {
+    const bar = document.getElementById('peek-search-wrap');
+    if (bar) bar.classList.add('open');
+    setTimeout(() => document.getElementById('peek-search')?.focus(), 100);
+  };
+  window.closeFocusSearch = function() {
+    const bar = document.getElementById('peek-search-wrap');
+    if (!bar) return;
+    bar.classList.remove('open', 'has-value');
+    const inp = document.getElementById('peek-search');
+    if (inp) inp.value = '';
+    if (typeof clearPeekSearch === 'function') clearPeekSearch();
+  };
+
+  // ── Edge-swipe-back (mobile) ──
+  (function() {
+    const SWIPE_EDGE_PX = 28;
+    const SWIPE_THRESHOLD = 80;
+    let start = null;
+    const ov = document.getElementById('peek-overlay');
+    if (!ov) return;
+    ov.addEventListener('touchstart', e => {
+      if (!ov.classList.contains('active')) return;
+      const body = document.getElementById('peek-body');
+      // Allow edge swipe even over terminal text
+      const t = e.touches[0];
+      if (t.clientX <= SWIPE_EDGE_PX) {
+        start = { x: t.clientX, y: t.clientY, t: Date.now() };
+      } else {
+        start = null;
+      }
+    }, { passive: true });
+    ov.addEventListener('touchmove', e => {
+      if (!start) return;
+      const t = e.touches[0];
+      const dx = t.clientX - start.x;
+      const dy = Math.abs(t.clientY - start.y);
+      if (dy > 30 && dx < 30) { start = null; ov.style.transform = ''; ov.style.transition = ''; return; }
+      if (dx > 0) {
+        ov.style.transition = 'none';
+        ov.style.transform = 'translateX(' + dx + 'px)';
+      }
+    }, { passive: true });
+    ov.addEventListener('touchend', e => {
+      if (!start) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      ov.style.transition = '';
+      if (dx > SWIPE_THRESHOLD) {
+        // Animate off-screen then close
+        if (window.motion && window.AmuxSprings) {
+          motion.animate(ov, { x: ['' + dx + 'px', '100%'] }, AmuxSprings.snappy).finished.then(() => {
+            ov.style.transform = ''; closePeek();
+          });
+        } else {
+          ov.style.transition = 'transform 0.28s cubic-bezier(.32,.72,0,1)';
+          ov.style.transform = 'translateX(100%)';
+          setTimeout(() => { closePeek(); ov.style.transform = ''; ov.style.transition = ''; }, 280);
+        }
+      } else {
+        if (window.motion && window.AmuxSprings) {
+          motion.animate(ov, { x: '0' }, AmuxSprings.snappy).finished.then(() => {
+            ov.style.transform = '';
+          });
+        } else {
+          ov.style.transition = 'transform 0.2s ease-out';
+          ov.style.transform = '';
+        }
+      }
+      start = null;
+    }, { passive: true });
+  })();
+
+  // ── Keyboard shortcuts ──
+  document.addEventListener('keydown', e => {
+    const ov = document.getElementById('peek-overlay');
+    if (!ov || !ov.classList.contains('active')) return;
+    const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+
+    // Cmd/Ctrl+F → open search
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !isInput) {
+      e.preventDefault();
+      _focusOpenSearch();
+      return;
+    }
+    // Cmd/Ctrl+K → open overflow sheet (slash command picker)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      const inp = document.getElementById('peek-cmd-input');
+      if (inp) {
+        inp.value = '/';
+        if (typeof autoGrow === 'function') autoGrow(inp);
+        inp.focus({ preventScroll: true });
+        if (typeof slashAcUpdate === 'function') slashAcUpdate();
+      }
+      return;
+    }
+    // Cmd/Ctrl+W → close (only outside an input)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'w' && !isInput) {
+      e.preventDefault();
+      closePeek();
+      return;
+    }
+    // Esc: if a sheet is open, close that first (don't dismiss overlay)
+    if (e.key === 'Escape') {
+      const sheetOpen = document.querySelector('.focus-sheet[data-state="open"]');
+      const slashOpen = document.querySelector('.focus-slash-menu.open');
+      const searchOpen = document.getElementById('peek-search-wrap')?.classList.contains('open');
+      if (sheetOpen) {
+        e.preventDefault();
+        sheetOpen.dataset.state = 'closed';
+        sheetOpen.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      if (slashOpen && isInput) {
+        // Let slashAcKeydown handle it
+        return;
+      }
+      if (searchOpen) {
+        e.preventDefault();
+        closeFocusSearch();
+        return;
+      }
+    }
+  }, true);
+
+  // Backdrop click for sheets handled via inline onclick on .focus-sheet-backdrop
+
+  // Whenever the SSE update runs render(), our status dot needs refresh.
+  // Hook into the global render() if available, else poll on a slow timer.
+  const origRender = window.render;
+  if (typeof origRender === 'function') {
+    window.render = function() {
+      const r = origRender.apply(this, arguments);
+      try { _focusSyncStatusDot(); } catch(e) {}
+      return r;
+    };
+  }
+})();
+
+// ── Patch: wrap openPeek / closePeek to manage body[data-focus-mode] ──
+(function() {
+  const _origOpenPeek = window.openPeek;
+  const _origClosePeek = window.closePeek;
+  if (typeof _origOpenPeek === 'function') {
+    window.openPeek = function(name, opts) {
+      const r = _origOpenPeek.call(this, name, opts);
+      document.body.setAttribute('data-focus-mode', 'true');
+      // Set split-pane data attr if desktop wide enough
+      if (window.innerWidth >= 1024) document.body.setAttribute('data-focus-split', 'true');
+      // Sync status dot from cache immediately
+      setTimeout(() => {
+        try { window._focusSyncStatusDot && window._focusSyncStatusDot(); } catch(e){}
+        try { window._focusUpdateSubtabPill && window._focusUpdateSubtabPill(); } catch(e){}
+        try { window._dockSyncSend && window._dockSyncSend(); } catch(e){}
+        try { window._dockSyncKeyboard && window._dockSyncKeyboard(); } catch(e){}
+      }, 0);
+      // Re-render any lucide icons we just inserted
+      if (window.lucide && lucide.createIcons) {
+        setTimeout(() => { try { lucide.createIcons(); } catch(e){} }, 16);
+      }
+      return r;
+    };
+  }
+  if (typeof _origClosePeek === 'function') {
+    window.closePeek = function() {
+      const r = _origClosePeek.call(this);
+      document.body.removeAttribute('data-focus-mode');
+      document.body.removeAttribute('data-focus-split');
+      // Hide subtab pill, search, sheets
+      const pill = document.getElementById('focus-subtab-pill');
+      if (pill) pill.hidden = true;
+      const bar = document.getElementById('peek-search-wrap');
+      if (bar) bar.classList.remove('open', 'has-value');
+      document.querySelectorAll('.focus-sheet[data-state="open"]').forEach(s => {
+        s.dataset.state = 'closed';
+        s.setAttribute('aria-hidden', 'true');
+      });
+      // Reset dock transform
+      const dock = document.getElementById('peek-dock');
+      if (dock) dock.style.transform = '';
+      return r;
+    };
+  }
+})();
+
+// ── Patch: wrap setPeekTab to update the sub-tab pill ──
+(function() {
+  const _origSetPeekTab = window.setPeekTab;
+  if (typeof _origSetPeekTab === 'function') {
+    window.setPeekTab = function(tab) {
+      const r = _origSetPeekTab.call(this, tab);
+      try { window._focusUpdateSubtabPill && window._focusUpdateSubtabPill(); } catch(e){}
+      return r;
+    };
+  }
+})();
+
+// ── Initial dock send-sync (when input has a draft) ──
+setTimeout(() => { try { window._dockSyncSend && _dockSyncSend(); } catch(e){} }, 100);
+
 
 // Swipe right to close peek (but never when touching the terminal body — preserve text selection)
 (function() {
