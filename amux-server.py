@@ -35255,6 +35255,132 @@ class ResilientHTTPSServer(ThreadingHTTPServer):
             self.shutdown_request(request)
 
 
+# ═══════════════════════════════════════════
+# WEBSOCKET SHIM (RFC 6455, inline, no deps)
+# Used by /ws/sessions/{name} to stream tmux pty bytes in real time.
+# Refs: RFC 6455 §5.2 (frame format), §1.3 (handshake).
+# Single-file religion: no `websockets` / `wsproto` dep — ~150 LOC here.
+# ═══════════════════════════════════════════
+
+_WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"  # RFC 6455 §1.3
+_WS_OP_CONT  = 0x0
+_WS_OP_TEXT  = 0x1
+_WS_OP_BIN   = 0x2
+_WS_OP_CLOSE = 0x8
+_WS_OP_PING  = 0x9
+_WS_OP_PONG  = 0xA
+_WS_MAX_PAYLOAD = 4 * 1024 * 1024  # 4 MB hard cap per inbound frame
+
+
+def _ws_accept_key(client_key: str) -> str:
+    """Compute Sec-WebSocket-Accept value per RFC 6455 §1.3."""
+    import hashlib as _hl
+    digest = _hl.sha1((client_key + _WS_MAGIC).encode("ascii")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def _ws_build_frame(payload: bytes, opcode: int = _WS_OP_BIN, fin: bool = True) -> bytes:
+    """Serialize one (unfragmented) WebSocket frame for server→client.
+    Server frames are never masked (RFC 6455 §5.3)."""
+    b0 = (0x80 if fin else 0x00) | (opcode & 0x0F)
+    n = len(payload)
+    if n < 126:
+        header = struct.pack("!BB", b0, n)
+    elif n < (1 << 16):
+        header = struct.pack("!BBH", b0, 126, n)
+    else:
+        header = struct.pack("!BBQ", b0, 127, n)
+    return header + payload
+
+
+def _ws_send(sock, payload: bytes, opcode: int = _WS_OP_BIN) -> None:
+    """Write one complete frame. Caller serializes via lock if multi-threaded."""
+    sock.sendall(_ws_build_frame(payload, opcode))
+
+
+def _ws_recv_exact(sock, n: int) -> bytes:
+    """Read exactly n bytes from sock or raise ConnectionError on EOF."""
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionError("ws: peer closed")
+        buf.extend(chunk)
+    return bytes(buf)
+
+
+def _ws_read_frame(sock) -> tuple[bool, int, bytes]:
+    """Parse one inbound frame. Returns (fin, opcode, payload)."""
+    hdr = _ws_recv_exact(sock, 2)
+    b0, b1 = hdr[0], hdr[1]
+    fin = bool(b0 & 0x80)
+    # RFC 6455 §5.2: RSV bits must be 0 unless an extension negotiated them.
+    if b0 & 0x70:
+        raise ConnectionError("ws: unexpected RSV bits")
+    opcode = b0 & 0x0F
+    masked = bool(b1 & 0x80)
+    length = b1 & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", _ws_recv_exact(sock, 2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", _ws_recv_exact(sock, 8))[0]
+    if length > _WS_MAX_PAYLOAD:
+        raise ConnectionError(f"ws: frame too large ({length} > {_WS_MAX_PAYLOAD})")
+    # RFC 6455 §5.1: client→server frames MUST be masked.
+    if not masked:
+        raise ConnectionError("ws: client frame not masked")
+    mask = _ws_recv_exact(sock, 4)
+    payload = bytearray(_ws_recv_exact(sock, length)) if length else bytearray()
+    for i in range(length):
+        payload[i] ^= mask[i & 3]
+    return fin, opcode, bytes(payload)
+
+
+def _ws_read_message(sock) -> tuple[int, bytes]:
+    """Read one logical message (assembling continuations). Returns (opcode, payload).
+    Control frames are returned as-is without reassembly."""
+    fin, opcode, payload = _ws_read_frame(sock)
+    # Control frames must not be fragmented (RFC 6455 §5.5).
+    if opcode & 0x8:
+        if not fin:
+            raise ConnectionError("ws: fragmented control frame")
+        return opcode, payload
+    if fin:
+        return opcode, payload
+    first_op = opcode
+    chunks = [payload]
+    while True:
+        fin2, op2, pl2 = _ws_read_frame(sock)
+        if op2 & 0x8:
+            # Control frame interleaved during fragmentation — ignore (per pragma).
+            if fin2:
+                continue
+            raise ConnectionError("ws: fragmented control during continuation")
+        if op2 != _WS_OP_CONT:
+            raise ConnectionError("ws: expected continuation frame")
+        chunks.append(pl2)
+        if fin2:
+            break
+    return first_op, b"".join(chunks)
+
+
+def _ws_handshake_response(client_key: str) -> bytes:
+    """Build the HTTP/1.1 101 Switching Protocols handshake response."""
+    accept = _ws_accept_key(client_key)
+    return (
+        b"HTTP/1.1 101 Switching Protocols\r\n"
+        b"Upgrade: websocket\r\n"
+        b"Connection: Upgrade\r\n"
+        b"Sec-WebSocket-Accept: " + accept.encode("ascii") + b"\r\n"
+        b"\r\n"
+    )
+
+
+def _ws_close_payload(code: int = 1000, reason: str = "") -> bytes:
+    """Build a CLOSE-frame payload (2-byte status code + UTF-8 reason ≤ 123 B)."""
+    return struct.pack("!H", code) + reason.encode("utf-8")[:123]
+
+
 class CCHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # Suppressed — we do our own timing-aware logging in _route()
