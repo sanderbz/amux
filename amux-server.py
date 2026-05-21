@@ -11088,7 +11088,25 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   #peek-overlay.focus-shell .peek-git-panel.active,
   #peek-overlay.focus-shell .peek-commits-panel.active { z-index: 3; }
 
-  /* ── Desktop split-pane (≥1024px): sessions list left, focus right ── */
+  /* ── Tablet portrait split-pane (769–1023px): sessions list left
+        (320px), focus right. Desktop (≥1024px) widens list to 360px. ── */
+  @media (min-width: 769px) and (max-width: 1023px) {
+    #peek-overlay.focus-shell.active {
+      left: 320px;
+      box-shadow: -1px 0 0 0 var(--sep-non-opaque);
+    }
+    body[data-focus-mode="true"][data-focus-split="true"] .tab-bar-outer { display: flex; }
+    /* Keep the underlying session list visible (not just dim-locked) so
+       the user can tap another card to switch sessions iPad-style. */
+    body[data-focus-mode="true"][data-focus-split="true"] #session-view,
+    body[data-focus-mode="true"][data-focus-split="true"] #board-view,
+    body[data-focus-mode="true"][data-focus-split="true"] #files-view {
+      visibility: visible !important;
+    }
+    body[data-focus-mode="true"][data-focus-split="true"] .header-row {
+      display: flex !important;
+    }
+  }
   @media (min-width: 1024px) {
     #peek-overlay.focus-shell.active {
       left: 360px;
@@ -11096,8 +11114,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     }
     body[data-focus-mode="true"][data-focus-split="true"] .tab-bar-outer { display: flex; }
   }
-  /* ≤1023 — header takes full width */
-  @media (max-width: 1023px) {
+  /* ≤768 (phones only) — header takes full width */
+  @media (max-width: 768px) {
     #peek-overlay.focus-shell.active { left: 0; }
   }
 
@@ -23415,7 +23433,10 @@ function _syncPeekOverlayToVisualViewport() {
       _focusRunVT(() => {
         result = _origOpenPeek.call(this, name, opts);
         document.body.setAttribute('data-focus-mode', 'true');
-        if (window.innerWidth >= 1024) document.body.setAttribute('data-focus-split', 'true');
+        // Split-pane kicks in on tablet portrait (≥769) AND desktop. Phones
+        // (≤768) get the iOS drag-detent sheet instead. The CSS rule pair
+        // 769–1023 (iPad 320px) + ≥1024 (desktop 360px) styles the left gap.
+        if (window.innerWidth >= 769) document.body.setAttribute('data-focus-split', 'true');
       }, name);
       // Sync status dot from cache immediately
       setTimeout(() => {
@@ -23940,6 +23961,15 @@ function _syncPeekOverlayToVisualViewport() {
   window.addEventListener('resize', () => {
     const ov = document.getElementById('peek-overlay');
     if (!ov) return;
+    // Re-evaluate split-pane vs full-takeover: split kicks in at ≥769px
+    // (iPad portrait + desktop), but only when focus mode is actually open.
+    if (document.body.hasAttribute('data-focus-mode')) {
+      if (window.innerWidth >= 769) {
+        document.body.setAttribute('data-focus-split', 'true');
+      } else {
+        document.body.removeAttribute('data-focus-split');
+      }
+    }
     if (!isMobile()) {
       if (ov.classList.contains('ios-sheet')) {
         ov.classList.remove('ios-sheet', 'ios-sheet--peek', 'ios-sheet--half', 'ios-sheet--full');
