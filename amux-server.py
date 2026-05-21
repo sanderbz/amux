@@ -21497,6 +21497,7 @@ function _syncPeekOverlayToVisualViewport() {
     // still has to happen — we just don't animate it. Stacking VTs is what
     // produces the duplicate-name console spam + invalid-state abort.
     if (window._vtInFlight) {
+      console.log('[_focusRunVT] skipping — vt in flight');
       fn();
       return;
     }
