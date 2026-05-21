@@ -10104,6 +10104,19 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     #peek-overlay.focus-shell.active { left: 0; }
   }
 
+  /* ── View Transitions API: card → focus morph ── */
+  @supports (view-transition-name: foo) {
+    ::view-transition-old(focus-card),
+    ::view-transition-new(focus-card) {
+      animation-duration: 320ms;
+      animation-timing-function: var(--ease-emphasized);
+    }
+    ::view-transition-group(focus-card) {
+      animation-duration: 320ms;
+      animation-timing-function: var(--ease-emphasized);
+    }
+  }
+
   /* Override legacy overlay padding rules that fought safe areas */
   #peek-overlay.focus-shell { padding-bottom: 0 !important; }
   #peek-overlay.focus-shell.peek-focus .focus-header { display: none; }
