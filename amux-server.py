@@ -22026,44 +22026,317 @@ function _syncPeekOverlayToVisualViewport() {
     }
   };
 
+  // ── Snippets (P1-1) ─────────────────────────────────────────────────
+  // Saved commands rendered inside the + sheet, above Quick commands.
+  // Storage: localStorage["amuxSnippets"] = JSON array of
+  //   { id, name, payload, sendOnTap }.
+  // Payload supports literal \n (two-char escape) which expands to a real
+  // newline before delivery — so a snippet of `npm test\n` actually sends
+  // `npm test` + Enter to the active session.
+  window.AmuxSnippets = (function() {
+    const KEY = 'amuxSnippets';
+    let _editingId = null;          // 'new' for new-snippet form, else snippet id
+    let _pressTimer = null;
+
+    function _load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    }
+    function _save(arr) {
+      try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch (e) {}
+    }
+    function _newId() {
+      return 'snip_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+    }
+    // Expand the two-char escape "\n" (and "\t") into real characters so the
+    // saved string `npm test\n` actually delivers Enter. We deliberately
+    // accept a small set — no \xNN, no full JSON parsing — to keep the
+    // textarea behaviour predictable.
+    function _expand(payload) {
+      if (!payload) return '';
+      return String(payload).replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    }
+    // Best-effort send. Prefer the live WebSocket (instant, no toast flash);
+    // fall back to the existing doSend HTTP path so this works pre-WS-mount
+    // and on desktop/legacy too.
+    function _send(text) {
+      const lt = window._liveTerm;
+      if (lt && typeof lt.isLive === 'function' && lt.isLive() && lt.sendInput) {
+        try { if (lt.sendInput(text)) return; } catch (e) {}
+      }
+      if (peekSession && typeof doSend === 'function') {
+        doSend(peekSession, text);
+      }
+    }
+    function _fillInput(text) {
+      const inp = document.getElementById('peek-cmd-input');
+      if (!inp) return;
+      inp.value = text;
+      if (typeof autoGrow === 'function') autoGrow(inp);
+      if (typeof _dockSyncSend === 'function') _dockSyncSend();
+      try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+    }
+
+    function tap(id) {
+      const s = _load().find(x => x.id === id);
+      if (!s) return;
+      const text = _expand(s.payload);
+      closeDockPlusSheet();
+      if (s.sendOnTap) {
+        _send(text);
+      } else {
+        _fillInput(text);
+      }
+    }
+    function startEdit(id) {
+      _editingId = id;
+      _renderSheet();
+    }
+    function newSnippet() {
+      _editingId = 'new';
+      _renderSheet();
+    }
+    function cancelEdit() {
+      _editingId = null;
+      _renderSheet();
+    }
+    function saveEdit() {
+      const nameEl = document.getElementById('snip-edit-name');
+      const payEl  = document.getElementById('snip-edit-payload');
+      const sendEl = document.getElementById('snip-edit-sendontap');
+      if (!nameEl || !payEl) return;
+      const name = (nameEl.value || '').trim();
+      const payload = payEl.value || '';
+      if (!name || !payload) {
+        showToast('Name and payload are required');
+        return;
+      }
+      const arr = _load();
+      if (_editingId && _editingId !== 'new') {
+        const i = arr.findIndex(x => x.id === _editingId);
+        if (i >= 0) {
+          arr[i].name = name;
+          arr[i].payload = payload;
+          arr[i].sendOnTap = !!(sendEl && sendEl.checked);
+        }
+      } else {
+        arr.push({
+          id: _newId(),
+          name, payload,
+          sendOnTap: !!(sendEl && sendEl.checked),
+        });
+      }
+      _save(arr);
+      _editingId = null;
+      _renderSheet();
+    }
+    async function remove(id) {
+      const arr = _load();
+      const s = arr.find(x => x.id === id);
+      if (!s) return;
+      let ok = true;
+      if (typeof showConfirm === 'function') {
+        ok = await showConfirm('Delete snippet "' + s.name + '"?', 'Delete', true);
+      }
+      if (!ok) return;
+      _save(arr.filter(x => x.id !== id));
+      if (_editingId === id) _editingId = null;
+      _renderSheet();
+    }
+
+    // Long-press wiring — attached after each render via wireRows().
+    function _onPressStart(_e, id) {
+      _pressTimer && clearTimeout(_pressTimer);
+      _pressTimer = setTimeout(() => {
+        _pressTimer = null;
+        if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e2) {} }
+        startEdit(id);
+      }, 500);
+    }
+    function _onPressCancel() {
+      if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+    }
+
+    function _editorHtml() {
+      const editing = _editingId && _editingId !== 'new'
+        ? _load().find(x => x.id === _editingId) : null;
+      const nm = editing ? esc(editing.name) : '';
+      const pl = editing ? esc(editing.payload) : '';
+      const ck = editing ? (editing.sendOnTap ? 'checked' : '') : 'checked';
+      const title = editing ? 'Edit snippet' : 'New snippet';
+      return ''
+        + '<li class="snippet-editor" onclick="event.stopPropagation()">'
+        + '  <div class="se-label">' + title + '</div>'
+        + '  <input type="text" class="se-name" id="snip-edit-name" placeholder="Name (e.g. Run tests)" value="' + nm + '" autocomplete="off" />'
+        + '  <div class="se-label" style="margin-top:8px;">Payload — use \\n for Enter</div>'
+        + '  <textarea class="se-payload" id="snip-edit-payload" placeholder="npm test\\n" spellcheck="false">' + pl + '</textarea>'
+        + '  <label class="se-row se-toggle">'
+        + '    <input type="checkbox" id="snip-edit-sendontap" ' + ck + ' />'
+        + '    <span>Send to session on tap</span>'
+        + '  </label>'
+        + '  <div class="se-hint">Off = fill the input box so you can edit before sending.</div>'
+        + '  <div class="se-actions">'
+        + '    <button type="button" class="se-btn ghost" onclick="AmuxSnippets.cancelEdit()">Cancel</button>'
+        + '    <button type="button" class="se-btn primary" onclick="AmuxSnippets.saveEdit()">Save</button>'
+        + '  </div>'
+        + '</li>';
+    }
+    function _rowHtml(s) {
+      // Compact, single-line preview (keep the user's literal \n so the
+      // editor and the row stay in sync — no escaping into real newlines).
+      const previewSrc = String(s.payload || '');
+      const preview = previewSrc.length > 80 ? previewSrc.slice(0, 80) + '…' : previewSrc;
+      const modeChip = s.sendOnTap ? 'Send' : 'Fill';
+      return ''
+        + '<li class="focus-sheet-item snippet-row" data-snippet-id="' + esc(s.id) + '">'
+        + '  <span class="focus-sheet-item-icon"><i data-lucide="code-2"></i></span>'
+        + '  <span class="focus-sheet-item-label">'
+        + '    <span class="snippet-name">' + esc(s.name) + '</span>'
+        + '    <span class="snippet-preview">' + esc(preview) + '</span>'
+        + '  </span>'
+        + '  <span class="snippet-mode-chip" aria-label="Tap action">' + modeChip + '</span>'
+        + '  <button type="button" class="snippet-delete" aria-label="Delete snippet"'
+        + '          onclick="event.stopPropagation();AmuxSnippets.remove(\'' + esc(s.id) + '\')">'
+        + '    <i data-lucide="trash-2"></i>'
+        + '  </button>'
+        + '</li>';
+    }
+    function sectionHtml() {
+      const snippets = _load();
+      let html = ''
+        + '<div class="focus-sheet-section-label" style="display:flex;align-items:center;justify-content:space-between;">'
+        + '  <span>Snippets</span>'
+        + '  <button type="button" class="se-btn primary" style="height:28px;min-height:0;padding:0 10px;font-size:0.78rem;border-radius:8px;"'
+        + '          onclick="AmuxSnippets.newSnippet()">+ New</button>'
+        + '</div>';
+      // Inline editor for "new" sits above the list. For "edit existing" we
+      // render the editor inline at the row's position (handled below).
+      if (_editingId === 'new') {
+        html += _editorHtml();
+      }
+      if (!snippets.length && _editingId !== 'new') {
+        html += '<div class="snippet-empty">No snippets yet. Tap + New to save one.</div>';
+      }
+      for (const s of snippets) {
+        if (s.id === _editingId && _editingId !== 'new') {
+          html += _editorHtml();
+        } else {
+          html += _rowHtml(s);
+        }
+      }
+      return html;
+    }
+    function wireRows() {
+      const list = document.getElementById('dock-plus-sheet-list');
+      if (!list) return;
+      list.querySelectorAll('.snippet-row').forEach(row => {
+        const id = row.getAttribute('data-snippet-id');
+        if (!id) return;
+        row.addEventListener('click', (ev) => {
+          // Ignore clicks from inner buttons (delete).
+          if (ev.target.closest('.snippet-delete')) return;
+          tap(id);
+        });
+        // Long-press → edit. Use touch + pointer for both mobile + desktop.
+        row.addEventListener('touchstart', (ev) => _onPressStart(ev, id), { passive: true });
+        row.addEventListener('touchend',   _onPressCancel, { passive: true });
+        row.addEventListener('touchmove',  _onPressCancel, { passive: true });
+        row.addEventListener('touchcancel',_onPressCancel, { passive: true });
+        row.addEventListener('mousedown',  (ev) => {
+          if (ev.button === 0) _onPressStart(ev, id);
+        });
+        row.addEventListener('mouseup',    _onPressCancel);
+        row.addEventListener('mouseleave', _onPressCancel);
+        // Desktop right-click also opens the editor — common power-user
+        // affordance, harmless on mobile.
+        row.addEventListener('contextmenu', (ev) => {
+          ev.preventDefault();
+          startEdit(id);
+        });
+      });
+    }
+    function _renderSheet() {
+      // Re-render the + sheet contents but preserve any focused editor field.
+      if (typeof window.openDockPlusSheet === 'function') {
+        const sheet = document.getElementById('dock-plus-sheet');
+        if (sheet && sheet.dataset.state === 'open') {
+          window.openDockPlusSheet();
+          // After re-render, refocus the name field of the editor if present.
+          const nm = document.getElementById('snip-edit-name');
+          if (nm && _editingId) { try { nm.focus(); } catch (e) {} }
+        }
+      }
+    }
+    function resetEditState() { _editingId = null; }
+
+    return {
+      sectionHtml, wireRows,
+      tap, startEdit, newSnippet, cancelEdit, saveEdit, remove,
+      resetEditState,
+    };
+  })();
+
   // ── Dock + sheet (quick actions) ──
   window.openDockPlusSheet = function openDockPlusSheet() {
     const list = document.getElementById('dock-plus-sheet-list');
     if (!list) return;
     const items = [];
+    // Dictate — only render if Web Speech API is available (P1-5).
+    if (window.AmuxDictate && window.AmuxDictate.isSupported && window.AmuxDictate.isSupported()) {
+      items.push({ icon: 'mic', label: 'Dictate', onclick: "closeDockPlusSheet();AmuxDictate.start()" });
+    }
     items.push({ icon: 'paperclip', label: 'Attach file', onclick: "closeDockPlusSheet();document.getElementById('peek-file-input').click()" });
     items.push({ icon: 'clipboard', label: 'Paste from clipboard', onclick: "closeDockPlusSheet();_focusPasteFromClipboard()" });
     items.push({ icon: 'history', label: 'Message history', onclick: "closeDockPlusSheet();openCmdHistoryModal()" });
 
-    // Quick keys / chips
-    items.push({ section: 'Quick commands' });
-    items.push({ icon: 'corner-down-left', label: 'Send "continue"', onclick: "closeDockPlusSheet();peekQuickSend('continue')" });
-    items.push({ icon: 'square-slash', label: '/status', onclick: "closeDockPlusSheet();_focusSlash('/status')" });
-    items.push({ icon: 'square-slash', label: '/model', onclick: "closeDockPlusSheet();_focusSlash('/model')" });
-    items.push({ icon: 'square-slash', label: '/mcp', onclick: "closeDockPlusSheet();_focusSlash('/mcp')" });
-    items.push({ icon: 'eraser', label: '/clear', onclick: "closeDockPlusSheet();_focusSlash('/clear')" });
-    items.push({ icon: 'archive', label: '/compact', onclick: "closeDockPlusSheet();_focusSlash('/compact')" });
-
-    items.push({ section: 'Interrupt' });
-    items.push({ icon: 'octagon-x', label: 'Send Ctrl+C', destructive: true, onclick: "closeDockPlusSheet();peekQuickKeys('C-c')" });
-
     let html = '';
     for (const it of items) {
-      if (it.section) {
-        html += '<div class="focus-sheet-section-label">' + esc(it.section) + '</div>';
-        continue;
-      }
       const cls = 'focus-sheet-item' + (it.destructive ? ' is-destructive' : '');
       html += '<li class="' + cls + '" onclick="' + it.onclick + '">'
             + '  <span class="focus-sheet-item-icon"><i data-lucide="' + it.icon + '"></i></span>'
             + '  <span class="focus-sheet-item-label">' + esc(it.label) + '</span>'
             + '</li>';
     }
+
+    // Snippets section (P1-1) — between top actions and quick commands.
+    html += (window.AmuxSnippets ? window.AmuxSnippets.sectionHtml() : '');
+
+    // Quick keys / chips
+    const quick = [
+      { icon: 'corner-down-left', label: 'Send "continue"', onclick: "closeDockPlusSheet();peekQuickSend('continue')" },
+      { icon: 'square-slash', label: '/status', onclick: "closeDockPlusSheet();_focusSlash('/status')" },
+      { icon: 'square-slash', label: '/model', onclick: "closeDockPlusSheet();_focusSlash('/model')" },
+      { icon: 'square-slash', label: '/mcp', onclick: "closeDockPlusSheet();_focusSlash('/mcp')" },
+      { icon: 'eraser', label: '/clear', onclick: "closeDockPlusSheet();_focusSlash('/clear')" },
+      { icon: 'archive', label: '/compact', onclick: "closeDockPlusSheet();_focusSlash('/compact')" },
+    ];
+    html += '<div class="focus-sheet-section-label">Quick commands</div>';
+    for (const it of quick) {
+      html += '<li class="focus-sheet-item" onclick="' + it.onclick + '">'
+            + '  <span class="focus-sheet-item-icon"><i data-lucide="' + it.icon + '"></i></span>'
+            + '  <span class="focus-sheet-item-label">' + esc(it.label) + '</span>'
+            + '</li>';
+    }
+
+    html += '<div class="focus-sheet-section-label">Interrupt</div>';
+    html += '<li class="focus-sheet-item is-destructive" onclick="closeDockPlusSheet();peekQuickKeys(\'C-c\')">'
+          + '  <span class="focus-sheet-item-icon"><i data-lucide="octagon-x"></i></span>'
+          + '  <span class="focus-sheet-item-label">Send Ctrl+C</span>'
+          + '</li>';
+
     list.innerHTML = html;
     if (window.lucide && lucide.createIcons) lucide.createIcons();
+    if (window.AmuxSnippets) window.AmuxSnippets.wireRows();
     _focusOpenSheet('dock-plus-sheet');
   };
-  window.closeDockPlusSheet = function() { _focusCloseSheet('dock-plus-sheet'); };
+  window.closeDockPlusSheet = function() {
+    if (window.AmuxSnippets) window.AmuxSnippets.resetEditState();
+    _focusCloseSheet('dock-plus-sheet');
+  };
 
   // Quick paste helper
   window._focusPasteFromClipboard = async function() {
