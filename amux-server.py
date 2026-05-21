@@ -10294,6 +10294,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: var(--label-tertiary);
     margin: 6px auto var(--s-3);
     flex-shrink: 0;
+    /* Expand touch target to ~44pt while keeping the 5px visual stripe. */
+    position: relative;
+    cursor: grab;
+  }
+  .focus-sheet-grabber::before {
+    content: '';
+    position: absolute;
+    inset: -14px -40px;
   }
   .focus-sheet-list {
     list-style: none; margin: 0; padding: 0 var(--s-2);
