@@ -10225,6 +10225,129 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             backdrop-filter: blur(40px) saturate(180%);
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     iOS DRAG-DETENT SHEET (mobile focus mode)
+     Replaces the full-screen takeover on ≤768px with an Apple Maps / Now
+     Playing style sheet with 3 detents (peek / half / full).
+     Driven by the IosSheet JS class — heights are set inline, so most of
+     the layout rules just need to play nicely with a flex/height-driven
+     container instead of position:fixed inset:0.
+     ══════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* When .ios-sheet is on the focus-shell, swap from full-screen takeover
+       to a bottom-anchored draggable sheet. */
+    #peek-overlay.focus-shell.ios-sheet {
+      /* Anchor to the bottom, leave the top free so the user can see the
+         session list behind. Height is set inline by the JS controller. */
+      top: auto !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      /* JS drives transform during drag — keep CSS transitions off so we
+         don't fight inline transform/height changes. */
+      transform: none !important;
+      transition: none;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      box-shadow: var(--shadow-sheet);
+      background: var(--mat-thick);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+              backdrop-filter: blur(40px) saturate(180%);
+      overflow: hidden;
+      /* Keep the inner grid intact: grabber row above the existing header */
+      grid-template-rows: auto auto auto 1fr auto;
+    }
+    /* Active state for ios-sheet: visible + interactive, no slide-from-right */
+    #peek-overlay.focus-shell.ios-sheet.active {
+      transform: none !important;
+      pointer-events: auto;
+    }
+    /* When the sheet hasn't been promoted to full detent, hide the iOS
+       safe-area top padding on the focus-header — it isn't at the top of
+       the screen. JS adds .ios-sheet--full when the sheet is at full. */
+    #peek-overlay.focus-shell.ios-sheet:not(.ios-sheet--full) .focus-header {
+      padding-top: 0;
+    }
+    /* Body lock: at peek/half detents, the underlying session list should
+       still be visible (dimmed). At full detent we hide it for performance
+       and to feel like a true take-over. */
+    body[data-focus-mode="true"][data-focus-sheet="peek"] .tab-bar-outer,
+    body[data-focus-mode="true"][data-focus-sheet="half"] .tab-bar-outer {
+      /* Bottom nav bar must stay hidden — the sheet occupies that area */
+      display: none !important;
+    }
+    body[data-focus-mode="true"][data-focus-sheet="peek"] #session-view,
+    body[data-focus-mode="true"][data-focus-sheet="half"] #session-view,
+    body[data-focus-mode="true"][data-focus-sheet="peek"] #board-view,
+    body[data-focus-mode="true"][data-focus-sheet="half"] #board-view,
+    body[data-focus-mode="true"][data-focus-sheet="peek"] #files-view,
+    body[data-focus-mode="true"][data-focus-sheet="half"] #files-view {
+      /* Override the visibility:hidden lock — keep list visible behind sheet */
+      visibility: visible !important;
+      opacity: 0.7;
+      transition: opacity var(--duration-fast) var(--ease-standard);
+      pointer-events: auto; /* let the user tap another card to switch */
+    }
+    body[data-focus-mode="true"][data-focus-sheet="full"] #session-view,
+    body[data-focus-mode="true"][data-focus-sheet="full"] #board-view,
+    body[data-focus-mode="true"][data-focus-sheet="full"] #files-view {
+      visibility: hidden;
+    }
+    /* Grabber pill at the very top of the sheet */
+    .sheet-grabber {
+      width: 36px; height: 5px;
+      background: var(--label-quaternary, var(--label-tertiary));
+      border-radius: 999px;
+      margin: var(--s-2) auto var(--s-1);
+      cursor: grab;
+      touch-action: none;
+      flex-shrink: 0;
+      /* Expand the hit-area without growing the visual pill */
+      position: relative;
+    }
+    .sheet-grabber::before {
+      content: '';
+      position: absolute;
+      left: -40px; right: -40px; top: -16px; bottom: -16px;
+    }
+    .sheet-grabber:active { cursor: grabbing; }
+    /* Backdrop — fades in as sheet grows past peek. JS sets opacity. */
+    .sheet-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      -webkit-backdrop-filter: blur(8px);
+              backdrop-filter: blur(8px);
+      z-index: var(--z-modal-backdrop);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--duration-medium) var(--ease-emphasized);
+    }
+    .sheet-backdrop.visible {
+      pointer-events: auto;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sheet-backdrop { transition: opacity 0.01s linear; }
+    }
+    /* When the sheet is at peek detent, kill the focus-header bottom border
+       so the grabber + header read as one drag affordance. */
+    #peek-overlay.focus-shell.ios-sheet.ios-sheet--peek .focus-header {
+      border-bottom: 0;
+    }
+  }
+  /* Desktop (≥769px): ensure .ios-sheet class is a no-op (defensive — JS
+     should not add the class in the first place at desktop widths, but a
+     resize from mobile→desktop must not leave the sheet styles applied). */
+  @media (min-width: 769px) {
+    #peek-overlay.focus-shell.ios-sheet {
+      top: 0 !important;
+      bottom: 0 !important;
+      border-radius: 0;
+      box-shadow: none;
+      grid-template-rows: auto auto 1fr auto;
+    }
+    .sheet-backdrop { display: none !important; }
+    .sheet-grabber { display: none !important; }
+  }
+
   /* Card stats */
   .card-stats {
     display: flex; gap: 14px; margin-top: 6px; margin-left: 20px;
@@ -15749,6 +15872,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       oninput="_exploreSearchFilter(this.value)">
   </div>
   <div id="explore-body" class="file-overlay-body" style="padding:0;overflow-y:auto;"></div>
+</div>
+
+<!-- Cmd+K command palette — Raycast/Linear style fuzzy session switcher -->
+<div id="cmd-palette" class="cmd-palette" hidden role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="cmd-palette-backdrop"></div>
+  <div class="cmd-palette-panel surface-material">
+    <div class="cmd-palette-header">
+      <i data-lucide="search" class="cmd-palette-icon" aria-hidden="true"></i>
+      <input class="cmd-palette-input" type="text" placeholder="Switch session…" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="Search sessions">
+      <kbd class="cmd-palette-esc">esc</kbd>
+    </div>
+    <ul class="cmd-palette-results" role="listbox" aria-label="Sessions"></ul>
+    <footer class="cmd-palette-footer">
+      <span><kbd>&#x2191;&#x2193;</kbd> Navigate</span>
+      <span><kbd>&#x21B5;</kbd> Open</span>
+      <span><kbd>esc</kbd> Close</span>
+    </footer>
+  </div>
 </div>
 
 <script>
