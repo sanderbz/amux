@@ -16790,7 +16790,7 @@ window.Palette = {
     if ((e.key === ']' || e.key === '[') && !e.altKey && !e.shiftKey && !typing) {
       const running = runningSessions();
       if (!running.length) return;
-      const cur = window.peekSession || (running[0] && running[0].name);
+      const cur = peekSession || (running[0] && running[0].name);
       let idx = running.findIndex(s => s.name === cur);
       if (idx < 0) idx = 0;
       const next = e.key === ']'
@@ -21028,8 +21028,8 @@ function _syncPeekOverlayToVisualViewport() {
   // Re-syncs the header status dot from the global sessions[] cache.
   function _focusSyncStatusDot() {
     const dot = document.getElementById('peek-session-status');
-    if (!dot || !window.peekSession) return;
-    const sess = (window.sessions || []).find(s => s.name === window.peekSession);
+    if (!dot || !peekSession) return;
+    const sess = (window.sessions || []).find(s => s.name === peekSession);
     dot.setAttribute('data-status', _focusStatusFor(sess));
   }
   window._focusSyncStatusDot = _focusSyncStatusDot;
@@ -21070,7 +21070,7 @@ function _syncPeekOverlayToVisualViewport() {
     const list = document.getElementById('focus-sheet-list');
     if (!list) return;
     const cur = (typeof window._peekTab !== 'undefined' ? window._peekTab : 'terminal');
-    const sess = (window.sessions || []).find(s => s.name === window.peekSession) || {};
+    const sess = (window.sessions || []).find(s => s.name === peekSession) || {};
     let html = '<div class="focus-sheet-section-label">Views</div>';
     for (const t of FOCUS_SUBTABS) {
       const badge = (function() {
@@ -21108,7 +21108,7 @@ function _syncPeekOverlayToVisualViewport() {
           + '  <span class="focus-sheet-item-label">Find in terminal</span>'
           + '  <span class="focus-sheet-item-badge">⌘F</span>'
           + '</li>';
-    if (window.peekSessionDir) {
+    if (peekSessionDir) {
       html += '<li class="focus-sheet-item" onclick="closeFocusSheet();openExplore(peekSessionDir,peekSession)">'
             + '  <span class="focus-sheet-item-icon"><i data-lucide="folder-open"></i></span>'
             + '  <span class="focus-sheet-item-label">Browse files</span>'
@@ -21410,7 +21410,7 @@ function _syncPeekOverlayToVisualViewport() {
   }
   if (typeof _origClosePeek === 'function') {
     window.closePeek = function() {
-      const closingName = window.peekSession;
+      const closingName = peekSession;
       let result;
       _focusRunVT(() => {
         result = _origClosePeek.call(this);
@@ -21512,7 +21512,7 @@ function _syncPeekOverlayToVisualViewport() {
       // rAF + small delay so #peek-body is sized correctly before fit().
       requestAnimationFrame(() => {
         setTimeout(() => {
-          if (window.peekSession === name) _mountLiveTerm(name);
+          if (peekSession === name) _mountLiveTerm(name);
         }, 32);
       });
       return result;
