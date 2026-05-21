@@ -36952,6 +36952,190 @@ async function _jrnlSaveConfig() {
 })();
 </script>
 
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Termius-style focus-mode gestures (P0-3 / P0-4 / P0-5)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//   A. HOLD-anywhere-then-DRAG → arrow joystick with 3-speed gear
+//      • 300ms hold to arm; haptic + visual compass rose appears at touch origin
+//      • Drag direction = nearest cardinal axis → Up / Down / Left / Right
+//      • Distance from origin = repeat speed:
+//          ≤30px  = slow   (200ms)
+//          ≤80px  = medium (100ms)
+//           >80px = fast   ( 40ms)
+//      • Lift = exit; rose hides
+//
+//   B. TWO-FINGER vertical drag → PageUp / PageDown
+//      • 80px per page-key, capped at 3 keys per gesture
+//      • DOWN = PageUp (scroll back in time), UP = PageDown
+//
+//   C. Hide-keyboard + Gesture-mode toggles
+//      • Hide-kb (chevron-down): blur input + sink-trick to drop iOS keyboard
+//      • Gesture-mode (hand icon): when ON, joystick + two-finger no-op;
+//        only native xterm scroll/zoom passes through. Visual: 1px dashed
+//        outline in --tint-blue around the live-term host.
+//
+// INTERACTION RULES
+//  • One-finger touch with movement BEFORE 300ms → abort joystick arm
+//    (let xterm/browser handle scroll or potential selection).
+//  • Two-finger touch → take over for PageUp/PageDown; joystick handler bails
+//    when touches.length > 1.
+//  • Gesture-mode ON → all three input-emitting handlers no-op.
+//
+// CONSTRAINTS
+//  • No external deps. Single-file rule preserved (inline IIFE).
+//  • Touch handlers only attach on devices with 'ontouchstart' in window —
+//    desktop mouse / xterm.js native click-to-focus are unaffected.
+//  • Honors prefers-reduced-motion (rose animation suppressed via CSS already).
+//  • Wired on 'focus-terminal-mounted' CustomEvent, dispatched by the LiveTerm
+//    mount path; re-wires per mount (idempotent via dataset flag).
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  // Feature-detect once: skip the entire module on pointer-only devices so we
+  // never interfere with desktop xterm.js click-to-focus / mouse selection.
+  const HAS_TOUCH = ('ontouchstart' in window)
+                 || (navigator.maxTouchPoints > 0);
+  if (!HAS_TOUCH) return;
+
+  // ── Joystick tuning constants ──
+  const HOLD_MS  = 300;        // hold-to-arm timer
+  const DEAD_PX  = 12;         // dead zone — below this no arrow emitted
+  const REPEAT   = [200, 100, 40];  // ms intervals per speed tier
+  const TIER_MED = 30;         // ≤30px = slow, ≤80px = medium, >80px = fast
+  const TIER_FAST = 80;
+
+  // ── Joystick state (per-gesture, cleared on touchend) ──
+  let armed       = false;     // 300ms hold elapsed, joystick is live
+  let origin      = null;      // { x, y } at touchstart
+  let lastDir     = null;      // most recently emitted direction
+  let repeatTimer = null;      // setInterval handle for arrow repeat
+  let holdTimer   = null;      // setTimeout handle for the arm-after-300ms
+
+  function _sendArrow(name) {
+    // Prefer the LiveTerminal WS — instant, no HTTP round trip. Fall back to
+    // the existing HTTP key endpoint if the WS isn't open (early in mount, or
+    // mid-reconnect).
+    const lt = window._liveTerm;
+    if (lt && typeof lt.sendKey === 'function' && lt.sendKey(name)) return;
+    if (typeof peekQuickKeys === 'function' && window.peekSession) {
+      try { peekQuickKeys(name); } catch (e) {}
+    }
+  }
+
+  function _showRose(o, host) {
+    let r = document.getElementById('joystick-rose');
+    if (!r) {
+      r = document.createElement('div');
+      r.id = 'joystick-rose';
+      r.innerHTML = '<span class="jr-arrow jr-u">▲</span>'
+                  + '<span class="jr-arrow jr-d">▼</span>'
+                  + '<span class="jr-arrow jr-l">◀</span>'
+                  + '<span class="jr-arrow jr-r">▶</span>';
+      document.body.appendChild(r);
+    }
+    r.style.left = o.x + 'px';
+    r.style.top  = o.y + 'px';
+    r.style.display = 'block';
+    r.removeAttribute('data-dir');
+  }
+  function _setRoseDir(dir) {
+    const r = document.getElementById('joystick-rose');
+    if (r) r.setAttribute('data-dir', dir);
+  }
+  function _hideRose() {
+    const r = document.getElementById('joystick-rose');
+    if (r) { r.style.display = 'none'; r.removeAttribute('data-dir'); }
+  }
+  function _stopRepeat() {
+    if (repeatTimer) { clearInterval(repeatTimer); repeatTimer = null; }
+  }
+  function _resetState() {
+    clearTimeout(holdTimer); holdTimer = null;
+    _stopRepeat();
+    origin = null; armed = false; lastDir = null;
+    _hideRose();
+  }
+
+  function _onTouchStart(e) {
+    // Gesture-mode → fully disengage (let xterm handle).
+    if (window._gestureMode) return;
+    // Two-finger — let the two-finger handler take over; joystick bails.
+    if (e.touches && e.touches.length > 1) { _resetState(); return; }
+    const t = e.touches ? e.touches[0] : e;
+    origin = { x: t.clientX, y: t.clientY };
+    armed = false;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      // Still down + still single-finger? Arm.
+      if (!origin) return;
+      armed = true;
+      try { navigator.vibrate && navigator.vibrate(8); } catch (_e) {}
+      _showRose(origin, e.currentTarget);
+    }, HOLD_MS);
+  }
+
+  function _onTouchMove(e) {
+    if (!origin) return;
+    // Multi-touch arrived after start — abort joystick, let two-finger handler run.
+    if (e.touches && e.touches.length > 1) { _resetState(); return; }
+    const t = e.touches ? e.touches[0] : e;
+    const dx = t.clientX - origin.x;
+    const dy = t.clientY - origin.y;
+
+    if (!armed) {
+      // Movement before hold timer fired → user is scrolling / selecting →
+      // abort joystick arm so xterm's native handlers can take over.
+      if (Math.abs(dx) > DEAD_PX || Math.abs(dy) > DEAD_PX) {
+        clearTimeout(holdTimer); holdTimer = null;
+        origin = null;
+      }
+      return;
+    }
+
+    // Once armed, swallow the move so the browser doesn't scroll.
+    if (e.cancelable) e.preventDefault();
+
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    let dir, dist;
+    if (adx > ady) { dir  = dx > 0 ? 'Right' : 'Left'; dist = adx; }
+    else           { dir  = dy > 0 ? 'Down'  : 'Up';   dist = ady; }
+    if (dist < DEAD_PX) { _stopRepeat(); lastDir = null; _setRoseDir(''); return; }
+
+    const tier = dist > TIER_FAST ? 2 : (dist > TIER_MED ? 1 : 0);
+    if (dir !== lastDir) {
+      // Direction change OR first arrow → reset cadence + emit immediately.
+      _stopRepeat();
+      lastDir = dir;
+      _setRoseDir(dir);
+      _sendArrow(dir);
+      repeatTimer = setInterval(() => _sendArrow(dir), REPEAT[tier]);
+    } else if (repeatTimer && repeatTimer._tier !== tier) {
+      // Same direction but speed tier changed — re-schedule at new cadence.
+      _stopRepeat();
+      repeatTimer = setInterval(() => _sendArrow(dir), REPEAT[tier]);
+    }
+    if (repeatTimer) repeatTimer._tier = tier;
+  }
+
+  function _onTouchEnd() { _resetState(); }
+
+  // Wire on every LiveTerminal mount. The host element (#peek-body) gets
+  // recreated on session switch, so dataset.joystickWired prevents double-bind
+  // on the same DOM node while still allowing re-wire on fresh nodes.
+  document.addEventListener('focus-terminal-mounted', function(ev) {
+    const host = (ev && ev.detail && ev.detail.host)
+              || document.getElementById('peek-body');
+    if (!host || host.dataset.joystickWired === '1') return;
+    host.dataset.joystickWired = '1';
+    host.addEventListener('touchstart',  _onTouchStart, { passive: true });
+    host.addEventListener('touchmove',   _onTouchMove,  { passive: false });
+    host.addEventListener('touchend',    _onTouchEnd,   { passive: true });
+    host.addEventListener('touchcancel', _onTouchEnd,   { passive: true });
+  });
+})();
+</script>
+
 <div id="grid-view">
   <div class="grid-toolbar">
     <span class="grid-toolbar-title">Workspace</span>
