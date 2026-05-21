@@ -16217,6 +16217,212 @@ document.addEventListener('keydown', function(e) {
   else if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); resetZoom(); }
 });
 
+// ═══════ Cmd+K COMMAND PALETTE — Raycast/Linear style session switcher ═══════
+// Scope: global. Opens with Cmd+K (Ctrl+K). Filters live sessions by
+// name + dir, weighted by recency and "running" status. Selecting opens the
+// session via openPeek(name). State persists across reloads via localStorage.
+window.Palette = {
+  el: null, input: null, results: null,
+  items: [],
+  selectedIdx: 0,
+  // Last 10 chosen session names — newest first
+  recent: (function() {
+    try { return JSON.parse(localStorage.getItem('amux-recent-sessions') || '[]'); }
+    catch (e) { return []; }
+  })(),
+  _sessCache: null,
+  _sessCacheAt: 0,
+
+  isOpen() { return this.el && !this.el.hidden; },
+
+  // Get the freshest session list. The dashboard keeps `window.sessions` updated
+  // via SSE/poll; we read that. Fall back to a 5s-cached /api/sessions fetch
+  // only if the global is empty (first paint race).
+  _sessions() {
+    if (Array.isArray(window.sessions) && window.sessions.length) return window.sessions;
+    const now = Date.now();
+    if (this._sessCache && (now - this._sessCacheAt) < 5000) return this._sessCache;
+    // Kick off a background fetch (don't block the keystroke); refresh on resolve
+    fetch('/api/sessions').then(r => r.json()).then(d => {
+      this._sessCache = Array.isArray(d) ? d : (d && d.sessions) || [];
+      this._sessCacheAt = Date.now();
+      if (this.isOpen()) this._refresh();
+    }).catch(() => {});
+    return this._sessCache || [];
+  },
+
+  open() {
+    if (!this.el) this._init();
+    if (!this.el) return;  // DOM not ready
+    this.el.hidden = false;
+    this.input.value = '';
+    this._refresh();
+    // Spring entrance — Motion One if available, fall back to a CSS class.
+    const panel = this.el.querySelector('.cmd-palette-panel');
+    if (window.motion && window.AmuxSprings) {
+      const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try {
+        window.motion.animate(panel,
+          { opacity: [0, 1], transform: ['translateY(-12px)', 'translateY(0)'] },
+          prefersReducedMotion ? { duration: 0.01 } : { ...window.AmuxSprings.snappy, duration: 0.32 });
+      } catch (e) {
+        panel.classList.add('cmd-palette-ready');
+      }
+    } else {
+      panel.classList.add('cmd-palette-ready');
+    }
+    // Focus after entrance starts so iOS pulls up the keyboard.
+    // RAF avoids browser racing focus + entrance animation.
+    requestAnimationFrame(() => { try { this.input.focus(); } catch (e) {} });
+  },
+
+  close() {
+    if (!this.el) return;
+    this.el.hidden = true;
+    const panel = this.el.querySelector('.cmd-palette-panel');
+    if (panel) panel.classList.remove('cmd-palette-ready');
+  },
+
+  toggle() { this.isOpen() ? this.close() : this.open(); },
+
+  _init() {
+    this.el = document.getElementById('cmd-palette');
+    if (!this.el) return;
+    this.input = this.el.querySelector('.cmd-palette-input');
+    this.results = this.el.querySelector('.cmd-palette-results');
+    const backdrop = this.el.querySelector('.cmd-palette-backdrop');
+    if (backdrop) backdrop.addEventListener('click', () => this.close());
+    if (this.input) {
+      this.input.addEventListener('input', () => this._refresh());
+      this.input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          this.selectedIdx = Math.min(this.selectedIdx + 1, Math.max(this.items.length - 1, 0));
+          this._render(); e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+          this.selectedIdx = Math.max(this.selectedIdx - 1, 0);
+          this._render(); e.preventDefault();
+        } else if (e.key === 'Home') {
+          this.selectedIdx = 0; this._render(); e.preventDefault();
+        } else if (e.key === 'End') {
+          this.selectedIdx = Math.max(this.items.length - 1, 0); this._render(); e.preventDefault();
+        } else if (e.key === 'Enter') {
+          this._pick(); e.preventDefault();
+        } else if (e.key === 'Escape') {
+          this.close(); e.preventDefault(); e.stopPropagation();
+        }
+      });
+    }
+    // Tap outside the input on the panel = keep focus in the input
+    const panel = this.el.querySelector('.cmd-palette-panel');
+    if (panel) panel.addEventListener('mousedown', (e) => {
+      // If the click started inside a result li, let the click handler run
+      if (e.target.closest('.cmd-palette-results li')) return;
+      if (e.target !== this.input) { e.preventDefault(); try { this.input.focus(); } catch (er) {} }
+    });
+  },
+
+  _refresh() {
+    if (!this.input || !this.results) return;
+    const q = this.input.value.toLowerCase().trim();
+    const all = this._sessions();
+    const scored = all.map(s => {
+      const name = (s.name || '').toLowerCase();
+      const dir = (s.dir || s.work_dir || '').toLowerCase();
+      let score = -1;
+      if (!q) {
+        score = 0;
+      } else if (name === q) {
+        score = 5000;
+      } else if (name.startsWith(q)) {
+        score = 2000;
+      } else {
+        const ni = name.indexOf(q);
+        const di = dir.indexOf(q);
+        if (ni >= 0) score = 700 - ni;
+        else if (di >= 0) score = 200 - di;
+      }
+      if (score < 0) return null;
+      // Recent bonus (recent[0] is newest)
+      const ri = this.recent.indexOf(s.name);
+      if (ri >= 0) score += (10 - ri) * 60;
+      // Running bonus — power users live in running sessions
+      if (s.running) score += 250;
+      // Status: "waiting on user" first when sorting equals (slight nudge)
+      if (s.status === 'waiting') score += 40;
+      return { s, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 30);
+    this.items = scored.map(x => x.s);
+    if (this.selectedIdx >= this.items.length) this.selectedIdx = 0;
+    this._render();
+  },
+
+  _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  },
+
+  _render() {
+    if (!this.results) return;
+    this.results.innerHTML = '';
+    const recentSet = new Set(this.recent);
+    this.items.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', i === this.selectedIdx ? 'true' : 'false');
+      li.dataset.sessionName = s.name;
+      const dir = s.dir || s.work_dir || '';
+      const isRecent = !this.input.value && recentSet.has(s.name);
+      li.innerHTML =
+        '<span class="cmd-result-dot" data-status="' + (s.running ? 'running' : 'stopped') + '" aria-hidden="true"></span>' +
+        '<div class="cmd-result-text">' +
+          '<div class="cmd-result-name">' + this._esc(s.name) + '</div>' +
+          (dir ? '<div class="cmd-result-path">' + this._esc(dir) + '</div>' : '') +
+        '</div>' +
+        (isRecent ? '<span class="cmd-result-badge">recent</span>' : (s.running ? '' : '<span class="cmd-result-badge">stopped</span>'));
+      li.addEventListener('click', (e) => {
+        this.selectedIdx = i; this._pick(); e.preventDefault();
+      });
+      li.addEventListener('mouseenter', () => {
+        if (this.selectedIdx !== i) { this.selectedIdx = i; this._updateAriaSelected(); }
+      });
+      this.results.appendChild(li);
+    });
+    this._ensureSelectedVisible();
+  },
+
+  // Cheap selection update — only flips aria-selected on the row pair, no re-render
+  _updateAriaSelected() {
+    if (!this.results) return;
+    const rows = this.results.querySelectorAll('li');
+    rows.forEach((r, i) => r.setAttribute('aria-selected', i === this.selectedIdx ? 'true' : 'false'));
+    this._ensureSelectedVisible();
+  },
+
+  _ensureSelectedVisible() {
+    if (!this.results) return;
+    const row = this.results.children[this.selectedIdx];
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+  },
+
+  _pick() {
+    const s = this.items[this.selectedIdx];
+    if (!s) return;
+    // Push to recent (max 10), newest first, dedup
+    this.recent = [s.name].concat(this.recent.filter(n => n !== s.name)).slice(0, 10);
+    try { localStorage.setItem('amux-recent-sessions', JSON.stringify(this.recent)); } catch (e) {}
+    this.close();
+    // Hand off to the existing focus opener
+    if (typeof window.openPeek === 'function') {
+      window.openPeek(s.name);
+    } else if (typeof window.openSession === 'function') {
+      window.openSession(s.name);
+    } else {
+      location.hash = '#session=' + encodeURIComponent(s.name);
+    }
+  },
+};
+
 // Connection & offline state
 let online = true;
 window.addEventListener('offline', () => setOnline(false));
