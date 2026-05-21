@@ -14568,6 +14568,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       </button>
       <div class="active-dropdown" id="active-dropdown"></div>
     </div>
+    <button class="palette-mobile-btn" id="palette-btn" onclick="event.stopPropagation();if(window.Palette)window.Palette.open();" title="Search and run commands" aria-label="Open command palette"><i data-lucide="search"></i></button>
     <div class="header-add-wrap">
       <button class="header-add-btn" id="add-btn" onclick="event.stopPropagation();toggleAddMenu()" aria-label="Add"><i data-lucide="plus"></i></button>
       <div class="header-add-menu" id="add-menu">
@@ -28188,6 +28189,7 @@ function _renderBoardBySession(visible, container) {
   // ── Agent tasks grouped by session ──
   sessionNames.forEach(function(name) {
     const items = name ? groups[name] : noSession;
+    if (!items || !items.length) return;   // skip empty groups (no orphan headers)
     const collapsed = _sessionGroupCollapsed[name || '__none__'];
     const groupKey = name || '__none__';
     html += '<div class="board-session-group">';
