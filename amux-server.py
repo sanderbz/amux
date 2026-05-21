@@ -10088,7 +10088,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .peek-banner[data-state="connecting"]   { background: var(--tint-blue, #0a84ff); }
   .peek-banner[data-state="reconnecting"] { background: var(--tint-yellow, #ffd60a); color: #1a1a1a; }
   .peek-banner[data-state="offline"]      { background: var(--tint-red, #ff453a); }
-  .peek-banner[data-state="reconnected"]  { background: var(--tint-green, #30d158); }
+  .peek-banner[data-state="reconnected"]  {
+    background: var(--tint-green, #30d158);
+    color: #fff;
+    font-weight: var(--weight-semibold, 600);
+    animation: peek-banner-pop 480ms var(--ease-emphasized, cubic-bezier(0.2, 0, 0, 1));
+  }
+  @keyframes peek-banner-pop {
+    0%   { transform: translateY(0) scale(0.96); opacity: 0.85; }
+    40%  { transform: translateY(0) scale(1.03); opacity: 1; }
+    100% { transform: translateY(0) scale(1.00); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .peek-banner[data-state="reconnected"] { animation: none; }
+  }
   .peek-banner-spinner {
     width: 12px; height: 12px;
     border-radius: 50%;
@@ -10102,6 +10115,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .peek-banner[data-state="reconnected"] .peek-banner-spinner {
     display: none;
   }
+  /* Check icon: only visible when we just recovered (reconnected flash) */
+  .peek-banner-check {
+    display: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+  .peek-banner[data-state="reconnected"] .peek-banner-check { display: inline-block; }
   @keyframes peek-banner-spin {
     to { transform: rotate(360deg); }
   }
@@ -16617,6 +16644,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
        retry. Driven by LiveTerminal._setStatus. -->
   <div class="peek-banner" id="peek-conn-banner" data-state="hidden" role="status" aria-live="polite" onclick="_peekBannerClick()">
     <span class="peek-banner-spinner" aria-hidden="true"></span>
+    <span class="peek-banner-check" aria-hidden="true">&#x2713;</span>
     <span class="peek-banner-text" id="peek-conn-banner-text">Connecting…</span>
   </div>
 
@@ -37829,7 +37857,7 @@ async function _jrnlSaveConfig() {
   //   offline      → red,    "Connection lost — tap to retry"
   // Banner respects safe-area-inset-top (CSS). Tapping in 'offline' state
   // forces an immediate reconnect attempt (skips backoff).
-  const _BANNER_FLASH_MS = 800;
+  const _BANNER_FLASH_MS = 1100;
   let _peekBannerFlashTimer = null;
   function _peekBannerSet(state, prev) {
     const banner = document.getElementById('peek-conn-banner');
