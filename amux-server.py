@@ -10564,6 +10564,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     #peek-overlay.focus-shell.ios-sheet:not(.ios-sheet--full) .focus-header {
       padding-top: 0;
     }
+    /* At full detent the sheet fills the viewport; pin the focus-header to
+       the top so the back chevron + title + status dot stay visible above
+       the terminal. Without this, the header scrolls off when the live
+       terminal output grows tall. */
+    #peek-overlay.focus-shell.ios-sheet.ios-sheet--full .focus-header {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+    }
     /* Body lock: at peek/half detents, the underlying session list should
        still be visible (dimmed). At full detent we hide it for performance
        and to feel like a true take-over. */
