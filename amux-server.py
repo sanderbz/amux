@@ -9850,6 +9850,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   /* Root shell — grid: header / canvas / dock */
   #peek-overlay.focus-shell {
     display: grid; grid-template-rows: auto auto 1fr auto;
+    /* Pin grid track to viewport width so children with intrinsic content
+       (terminal canvas, dock buttons) can't push the column wider than the
+       viewport. Without minmax(0,1fr), grid items default to min-width:auto
+       which equals their content min-width — that overflowed by ~42px on a
+       390px iPhone viewport and clipped the last quick-key. */
+    grid-template-columns: minmax(0, 1fr);
     /* Override the default .overlay 12px padding & translateY */
     padding: 0 !important;
     background: var(--bg-base);
@@ -9860,6 +9866,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 opacity var(--duration-fast) var(--ease-emphasized);
     opacity: 1;
     pointer-events: none;
+  }
+  /* Belt-and-suspenders: every direct grid child gets min-width:0 so
+     descendants that are themselves flex/grid containers also shrink-fit. */
+  #peek-overlay.focus-shell > * {
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
   }
   #peek-overlay.focus-shell.active {
     transform: translateX(0);
