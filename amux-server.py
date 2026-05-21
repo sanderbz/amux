@@ -16423,6 +16423,83 @@ window.Palette = {
   },
 };
 
+// Global keyboard bindings — Cmd+K palette, Cmd+1..9 jump, Cmd+]/[ cycle, Cmd+W close
+// Capture-phase so we beat per-view handlers (peek-overlay etc.) that previously
+// claimed Cmd+K. We still bail out cleanly when the user is typing in a regular
+// input/textarea for shortcuts where that would be hostile (e.g. Cmd+W during compose).
+(function setupGlobalShortcuts() {
+  function isTypingTarget(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+  function runningSessions() {
+    return (window.sessions || []).filter(s => s && s.running);
+  }
+  document.addEventListener('keydown', function(e) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    // Don't intercept shift/alt-modified shortcuts the browser/site may want
+    // (except where explicitly handled below).
+    const typing = isTypingTarget(e.target);
+
+    // Cmd+K → palette (always, even while typing — Raycast/Linear convention)
+    if (e.key === 'k' && !e.altKey && !e.shiftKey) {
+      // Don't preventDefault if the palette is already open + the input has focus —
+      // let the user keep typing 'k' as a letter.
+      if (window.Palette && window.Palette.isOpen() && document.activeElement === window.Palette.input) return;
+      e.preventDefault();
+      if (window.Palette) window.Palette.open();
+      return;
+    }
+
+    // Cmd+1..9 → jump to nth running session
+    if (/^[1-9]$/.test(e.key) && !e.altKey && !e.shiftKey && !typing) {
+      const running = runningSessions();
+      const idx = parseInt(e.key, 10) - 1;
+      const target = running[idx];
+      if (target) {
+        e.preventDefault();
+        if (typeof window.openPeek === 'function') window.openPeek(target.name);
+      }
+      return;
+    }
+
+    // Cmd+] / Cmd+[ → next/prev running session
+    if ((e.key === ']' || e.key === '[') && !e.altKey && !e.shiftKey && !typing) {
+      const running = runningSessions();
+      if (!running.length) return;
+      const cur = window.peekSession || (running[0] && running[0].name);
+      let idx = running.findIndex(s => s.name === cur);
+      if (idx < 0) idx = 0;
+      const next = e.key === ']'
+        ? running[(idx + 1) % running.length]
+        : running[(idx - 1 + running.length) % running.length];
+      if (next) {
+        e.preventDefault();
+        if (typeof window.openPeek === 'function') window.openPeek(next.name);
+      }
+      return;
+    }
+
+    // Cmd+W → close focus, return to overview (only when not typing).
+    // We don't preventDefault unless we actually have something to close,
+    // so the browser tab-close still works when no overlay is open.
+    if (e.key === 'w' && !e.altKey && !e.shiftKey && !typing) {
+      const ov = document.getElementById('peek-overlay');
+      const open = ov && ov.classList.contains('active');
+      if (open) {
+        e.preventDefault();
+        if (typeof window.closePeek === 'function') window.closePeek();
+        else if (typeof window.dismissFocus === 'function') window.dismissFocus();
+      }
+      return;
+    }
+  }, true);  // capture-phase
+})();
+
 // Connection & offline state
 let online = true;
 window.addEventListener('offline', () => setOnline(false));
@@ -20698,16 +20775,11 @@ function _syncPeekOverlayToVisualViewport() {
       _focusOpenSearch();
       return;
     }
-    // Cmd/Ctrl+K → open overflow sheet (slash command picker)
+    // Cmd/Ctrl+K → open Cmd+K palette (overrides previous slash-picker shortcut;
+    // slash menu is still reachable by typing `/` in the input).
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
-      const inp = document.getElementById('peek-cmd-input');
-      if (inp) {
-        inp.value = '/';
-        if (typeof autoGrow === 'function') autoGrow(inp);
-        inp.focus({ preventScroll: true });
-        if (typeof slashAcUpdate === 'function') slashAcUpdate();
-      }
+      if (window.Palette) window.Palette.open();
       return;
     }
     // Cmd/Ctrl+W → close (only outside an input)
