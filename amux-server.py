@@ -11561,6 +11561,561 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .jrnl-gallery { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }
 
+  /* ════════════════════════════════════════════════════════════════════════
+     SESSION-VIEW + CHROME REDESIGN — Apple-grade overlay (overrides above)
+     Owns: .header-row, .tab-bar(-outer), #session-view, .card (session), search,
+           group headers, empty state, mobile bottom tab bar.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* Header — translucent material bar */
+  .header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: max(var(--chrome-tab-h, 0px), env(safe-area-inset-top, 0px));
+    z-index: 40;
+    background: var(--mat-thick);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    padding: var(--s-3) var(--s-5);
+    margin: 0 -16px 0 -16px;
+    border-bottom: 1px solid var(--sep-non-opaque);
+    gap: var(--s-3);
+  }
+  .header-row h1 {
+    margin: 0;
+    font: var(--weight-bold) var(--text-title3)/1.1 var(--font-rounded);
+    letter-spacing: -0.01em;
+    color: var(--label-primary);
+    display: flex; align-items: center; gap: var(--s-2);
+  }
+  .header-row h1 .dim { color: var(--label-secondary); font-weight: var(--weight-regular); }
+
+  /* Conn status — compact pill with breathing dot */
+  .conn-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: var(--weight-medium) var(--text-caption1)/1 var(--font-sans);
+    padding: 5px 10px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--tint-green) 14%, transparent);
+    color: var(--tint-green);
+    border: none; cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .conn-status::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--tint-green);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 55%, transparent);
+    animation: pulse-dot 2.2s var(--ease-standard) infinite;
+  }
+  .conn-status.polling {
+    background: color-mix(in srgb, var(--tint-orange) 14%, transparent); color: var(--tint-orange);
+  }
+  .conn-status.polling::before { background: var(--tint-orange); animation: none; }
+  .conn-status.offline {
+    background: color-mix(in srgb, var(--tint-red) 16%, transparent); color: var(--tint-red);
+  }
+  .conn-status.offline::before { background: var(--tint-red); animation: none; }
+  @keyframes pulse-dot {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 55%, transparent); }
+    70%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tint-green) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 0%, transparent); }
+  }
+
+  /* Notification bell — ghost icon button */
+  #notif-btn {
+    width: 36px; height: 36px; min-width: 36px;
+    border-radius: var(--r-full); border: none; background: transparent;
+    color: var(--label-secondary); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+    padding: 0; opacity: 1; font-size: 0; line-height: 0; position: relative;
+  }
+  #notif-btn:hover { background: var(--bg-tinted); color: var(--label-primary); }
+  #notif-btn:active { background: var(--bg-layer-3); }
+  #notif-btn svg, #notif-btn i { width: 18px; height: 18px; }
+
+  /* Notification badge — refined */
+  .notif-badge {
+    position: absolute; top: 2px; right: 2px;
+    background: var(--tint-red); color: #fff;
+    font: var(--weight-bold) 0.62rem/1 var(--font-sans);
+    min-width: 16px; height: 16px; border-radius: var(--r-full);
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-base);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Settings + add wraps — uniform 36px ghost/pill */
+  .header-add-btn {
+    width: 36px; height: 36px; min-width: 36px;
+    border-radius: var(--r-full); border: none;
+    background: var(--tint-blue); color: #fff;
+    font: var(--weight-semibold) 1.05rem/1 var(--font-sans);
+    cursor: pointer; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--tint-blue) 35%, transparent);
+    transition: transform var(--duration-instant) var(--ease-standard),
+                background var(--duration-fast) var(--ease-standard);
+  }
+  .header-add-btn:hover { background: color-mix(in srgb, var(--tint-blue) 90%, white); }
+  .header-add-btn:active { transform: scale(0.94); }
+  .header-add-btn svg, .header-add-btn i { width: 18px; height: 18px; }
+
+  .settings-btn {
+    width: 36px; height: 36px; min-width: 36px;
+    border-radius: var(--r-full); border: none;
+    background: transparent; color: var(--label-secondary);
+    cursor: pointer; padding: 0; font-size: 0; line-height: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+  .settings-btn:hover { background: var(--bg-tinted); color: var(--label-primary); }
+  .settings-btn:active { background: var(--bg-layer-3); }
+  .settings-btn svg, .settings-btn i { width: 18px; height: 18px; }
+
+  /* Active sessions pill */
+  .btn-active {
+    min-height: 36px; height: 36px; padding: 0 var(--s-3);
+    border-radius: var(--r-full);
+    background: var(--bg-tinted); color: var(--label-primary);
+    border: none; cursor: pointer;
+    font: var(--weight-semibold) var(--text-caption1)/1 var(--font-sans);
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .btn-active:hover { background: var(--bg-layer-3); }
+  .btn-active .active-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--tint-green); box-shadow: none;
+  }
+  .btn-active .active-count { font-variant-numeric: tabular-nums; }
+
+  .btn-rate-limit {
+    min-height: 36px; padding: 0 var(--s-3); border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--tint-red) 14%, transparent);
+    color: var(--tint-red); border: none;
+    font: var(--weight-semibold) var(--text-caption1)/1 var(--font-sans);
+    cursor: pointer; align-items: center; gap: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .btn-rate-limit:hover { background: color-mix(in srgb, var(--tint-red) 22%, transparent); }
+
+  /* Tab bar — desktop pill segmented control */
+  .tab-bar-outer {
+    display: flex; align-items: stretch;
+    margin: 0 -16px var(--s-3) -16px;
+    border-bottom: none;
+    position: sticky; top: var(--sticky-nav-top, 64px); z-index: 39;
+    background: var(--mat-regular);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    padding: var(--s-2) var(--s-3);
+  }
+  .tab-bar {
+    display: flex; gap: 2px; padding: 3px; flex: 1;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth; touch-action: pan-x; overscroll-behavior-x: contain;
+    background: var(--bg-tinted);
+    border-radius: var(--r-full);
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-bar button {
+    flex: none;
+    padding: 7px 14px;
+    font: var(--weight-semibold) var(--text-footnote)/1 var(--font-sans);
+    background: transparent; border: none; border-right: none; border-bottom: none;
+    border-radius: var(--r-full);
+    color: var(--label-secondary); cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--duration-fast) var(--ease-standard),
+                background var(--duration-medium) var(--ease-emphasized),
+                transform var(--duration-instant) var(--ease-standard);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-bar button:hover { color: var(--label-primary); }
+  .tab-bar button:active { transform: scale(0.96); }
+  .tab-bar button.active {
+    color: var(--label-primary);
+    background: var(--bg-layer-2);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .tab-customize-wrap {
+    position: relative; flex-shrink: 0; display: flex; align-items: center;
+    padding: 0 0 0 var(--s-2); border-left: none;
+  }
+  .tab-customize-btn {
+    width: 32px; height: 32px; border: none; background: transparent;
+    border-radius: var(--r-full); color: var(--label-secondary);
+    cursor: pointer; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .tab-customize-btn:hover { background: var(--bg-tinted); color: var(--label-primary); }
+
+  /* Session view — search row */
+  #session-view .sv-search-row {
+    display: flex; align-items: center; gap: var(--s-2);
+    padding: 0 var(--s-3); margin-top: var(--s-1); margin-bottom: var(--s-2);
+  }
+  #session-view .search-wrap {
+    position: relative; display: flex; align-items: center;
+    flex: 1; min-width: 0;
+  }
+  #session-view .search-wrap .sv-search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--label-tertiary); pointer-events: none;
+    width: 16px; height: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  #session-view .search-wrap .sv-search-icon svg,
+  #session-view .search-wrap .sv-search-icon i { width: 16px; height: 16px; }
+  #session-view .search-input {
+    width: 100%; min-height: 38px;
+    padding: 8px 36px 8px 36px;
+    background: var(--bg-tinted); color: var(--label-primary);
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    font: var(--weight-regular) var(--text-subhead) var(--font-sans);
+    outline: none;
+    transition: background var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard);
+    box-sizing: border-box;
+    box-shadow: none;
+  }
+  #session-view .search-input::placeholder { color: var(--label-tertiary); }
+  #session-view .search-input:focus {
+    background: var(--bg-layer-2);
+    border-color: var(--tint-blue);
+    box-shadow: none;
+  }
+  #session-view .search-clear {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: var(--r-full); border: none;
+    background: var(--bg-layer-3); color: var(--label-secondary);
+    font-size: 0.7rem; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  #session-view .search-clear:hover { background: var(--label-secondary); color: var(--bg-base); }
+  #session-view .search-wrap.has-value .search-clear { display: inline-flex; }
+
+  /* Session view — secondary tile controls */
+  #session-view .tile-controls { display: inline-flex; gap: 2px; align-items: center;
+    background: var(--bg-tinted); border-radius: var(--r-sm); padding: 3px; }
+  #session-view .tile-btn {
+    width: 32px; height: 32px; min-width: 32px;
+    border: none; background: transparent; color: var(--label-secondary);
+    border-radius: var(--r-xs);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.82rem;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+  #session-view .tile-btn:hover { background: var(--bg-layer-2); color: var(--label-primary); }
+  #session-view .tile-btn.active { background: var(--bg-layer-2); color: var(--label-primary); box-shadow: var(--shadow-sm); }
+  #session-view .log-search-btn { width: auto; padding: 0 10px; gap: 5px; }
+
+  /* Session cards — surface refinement */
+  #session-view #cards .card {
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    padding: var(--s-4) var(--s-4);
+    box-shadow: var(--shadow-sm);
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                box-shadow var(--duration-medium) var(--ease-emphasized),
+                transform var(--duration-medium) var(--ease-emphasized);
+    will-change: transform;
+  }
+  #session-view #cards .card:hover {
+    border-color: var(--label-quaternary);
+    box-shadow: var(--shadow-md);
+  }
+  #session-view #cards .card:active { border-color: var(--tint-blue); }
+
+  #session-view .card-name {
+    font: var(--weight-semibold) var(--text-headline)/1.3 var(--font-sans);
+    color: var(--label-primary);
+    letter-spacing: -0.005em;
+  }
+  #session-view .card-dir {
+    color: var(--label-tertiary);
+    font: var(--weight-regular) var(--text-footnote)/1.4 var(--font-mono);
+    margin-top: 6px; margin-left: 20px;
+  }
+  #session-view .card-preview {
+    color: var(--label-secondary);
+    font: var(--weight-regular) var(--text-footnote) var(--font-mono);
+    margin-top: 6px; margin-left: 20px;
+  }
+  #session-view .card-desc {
+    color: var(--label-primary); opacity: 0.88;
+    font: var(--weight-regular) var(--text-subhead) var(--font-sans);
+    margin-top: 6px; margin-left: 20px;
+  }
+
+  /* Tags + badges — Apple chip aesthetic, non-uppercase */
+  #session-view .badges { margin-top: 10px; margin-left: 20px; gap: 6px; }
+  #session-view .badge {
+    padding: 3px var(--s-2); border-radius: var(--r-xs);
+    font: var(--weight-semibold) var(--text-caption2)/1.4 var(--font-sans);
+    text-transform: none; letter-spacing: 0;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  #session-view .badge.yolo {
+    background: color-mix(in srgb, var(--tint-orange) 16%, transparent);
+    color: var(--tint-orange);
+  }
+  #session-view .badge.model {
+    background: color-mix(in srgb, var(--tint-teal) 16%, transparent);
+    color: var(--tint-teal);
+  }
+  #session-view .badge.codex {
+    background: color-mix(in srgb, var(--tint-green) 16%, transparent);
+    color: var(--tint-green);
+  }
+  #session-view .badge.auto-continue {
+    background: color-mix(in srgb, var(--tint-blue) 16%, transparent);
+    color: var(--tint-blue);
+  }
+  #session-view .tag {
+    padding: 3px var(--s-2); border-radius: var(--r-xs);
+    font: var(--weight-medium) var(--text-caption2)/1.4 var(--font-sans);
+    background: color-mix(in srgb, var(--tint-blue) 12%, transparent);
+    color: var(--tint-blue); border: none;
+  }
+  #session-view .tag:hover { background: color-mix(in srgb, var(--tint-blue) 22%, transparent); }
+  #session-view .status-badge {
+    padding: 2px var(--s-2); border-radius: var(--r-xs);
+    font: var(--weight-semibold) var(--text-caption2)/1.4 var(--font-sans);
+    text-transform: none; letter-spacing: 0;
+  }
+  #session-view .status-badge.active   { background: color-mix(in srgb, var(--tint-green) 16%, transparent);  color: var(--tint-green); }
+  #session-view .status-badge.waiting  { background: color-mix(in srgb, var(--tint-orange) 16%, transparent); color: var(--tint-orange); }
+  #session-view .status-badge.idle     { background: var(--bg-tinted); color: var(--label-secondary); }
+  #session-view .status-badge.steering { background: color-mix(in srgb, var(--tint-purple) 16%, transparent); color: var(--tint-purple); }
+  #session-view .status-badge.rate-limited { background: color-mix(in srgb, var(--tint-red) 14%, transparent); color: var(--tint-red); }
+
+  /* Group sections (Working / Needs Input / Idle / Stopped) */
+  #session-view #cards .board-session-group { margin-bottom: var(--s-3); }
+  #session-view #cards .board-session-header {
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--r-sm);
+    display: flex; align-items: center; gap: var(--s-2);
+    cursor: pointer; user-select: none;
+    transition: background var(--duration-fast) var(--ease-standard);
+    position: sticky;
+    top: calc(var(--sticky-nav-top, 64px) + 56px);
+    z-index: 30;
+    background: var(--mat-thin);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    margin-bottom: var(--s-2);
+  }
+  #session-view #cards .board-session-header:hover { background: var(--bg-tinted); }
+  #session-view #cards .board-session-chevron {
+    width: 12px; color: var(--label-tertiary); transition: transform var(--duration-medium) var(--ease-emphasized);
+    transform: rotate(0deg);
+  }
+  #session-view #cards .board-session-chevron.open { transform: rotate(90deg); }
+  #session-view #cards .board-session-name {
+    font: var(--weight-semibold) var(--text-footnote)/1 var(--font-sans);
+    color: var(--label-secondary);
+    text-transform: none; letter-spacing: 0.01em;
+  }
+  #session-view #cards .board-session-counts { margin-left: auto; }
+  #session-view #cards .board-session-count {
+    padding: 2px 8px; border-radius: var(--r-full);
+    font: var(--weight-semibold) var(--text-caption2)/1.4 var(--font-sans);
+    background: var(--bg-tinted); color: var(--label-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  #session-view #cards .tag-group-body {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* Tag filters refinement */
+  #session-view .tag-filters { padding: 0 var(--s-3); margin-top: 4px; margin-bottom: var(--s-3); }
+  #session-view .tag-filter {
+    padding: 5px 11px; border-radius: var(--r-full);
+    font: var(--weight-medium) var(--text-caption1)/1 var(--font-sans);
+    background: var(--bg-tinted); color: var(--label-secondary);
+    border: none;
+  }
+  #session-view .tag-filter.active {
+    background: color-mix(in srgb, var(--tint-blue) 18%, transparent);
+    color: var(--tint-blue);
+  }
+
+  /* Empty state — generous + iconic */
+  #session-view .sv-empty {
+    text-align: center; padding: 64px 24px 32px;
+    color: var(--label-secondary);
+    display: flex; flex-direction: column; align-items: center; gap: var(--s-3);
+  }
+  #session-view .sv-empty .sv-empty-icon {
+    width: 56px; height: 56px;
+    border-radius: var(--r-full);
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-tinted); color: var(--label-secondary);
+  }
+  #session-view .sv-empty .sv-empty-icon svg,
+  #session-view .sv-empty .sv-empty-icon i { width: 28px; height: 28px; }
+  #session-view .sv-empty h3 {
+    font: var(--weight-semibold) var(--text-title3) var(--font-sans);
+    color: var(--label-primary); margin: 0;
+  }
+  #session-view .sv-empty p {
+    margin: 0; max-width: 320px; line-height: 1.5;
+    font: var(--weight-regular) var(--text-subhead) var(--font-sans);
+    color: var(--label-secondary);
+  }
+  #session-view .sv-empty .sv-empty-cta {
+    min-height: 44px; padding: 0 var(--s-5);
+    margin-top: var(--s-2);
+    background: var(--tint-blue); color: #fff;
+    border: none; border-radius: var(--r-sm);
+    font: var(--weight-semibold) var(--text-callout) var(--font-sans);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--tint-blue) 30%, transparent);
+  }
+  #session-view .sv-empty .sv-empty-cta:hover { background: color-mix(in srgb, var(--tint-blue) 90%, white); }
+  #session-view .sv-empty .sv-empty-cta:active { transform: scale(0.97); }
+  #session-view .sv-empty .sv-empty-cta svg,
+  #session-view .sv-empty .sv-empty-cta i { width: 16px; height: 16px; }
+
+  /* Card stagger entrance */
+  @keyframes sv-card-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #session-view #cards .card.sv-enter {
+    animation: sv-card-enter 360ms var(--ease-emphasized) both;
+  }
+
+  /* Tab change cross-fade fallback (when View Transitions unsupported) */
+  @keyframes sv-view-fade {
+    from { opacity: 0.0; transform: translateY(4px); }
+    to   { opacity: 1.0; transform: translateY(0); }
+  }
+  .sv-view-fade { animation: sv-view-fade 240ms var(--ease-emphasized) both; }
+
+  /* Mobile (≤600px) — header tightens, tab bar moves to bottom */
+  @media (max-width: 600px) {
+    .header-row {
+      padding: var(--s-2) var(--s-4);
+      gap: var(--s-2);
+    }
+    .header-row h1 { font-size: var(--text-title3); }
+    .header-add-btn { width: 38px; height: 38px; min-width: 38px; }
+    .settings-btn, #notif-btn { width: 38px; height: 38px; min-width: 38px; }
+    .btn-active { min-height: 34px; height: 34px; padding: 0 10px; }
+
+    /* Hide the top tab bar on mobile — bottom tab bar takes over */
+    .tab-bar-outer { display: none; }
+
+    /* Bottom tab bar safe space */
+    body { padding-bottom: max(72px, calc(64px + env(safe-area-inset-bottom))); }
+
+    #session-view .sv-search-row { padding: 0 var(--s-3); }
+    #session-view #cards .board-session-header {
+      top: calc(var(--sticky-nav-top, 64px) + 8px);
+    }
+  }
+
+  /* Bottom tab bar (mobile only) */
+  .nav-tab-bar-mobile {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 80;
+    padding: 6px var(--s-3) calc(6px + env(safe-area-inset-bottom)) var(--s-3);
+    background: var(--mat-thick);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-top: 1px solid var(--sep-non-opaque);
+    justify-content: space-around;
+    align-items: center;
+    gap: 4px;
+  }
+  body.in-tab .nav-tab-bar-mobile { display: none !important; }
+  @media (max-width: 600px) { .nav-tab-bar-mobile { display: flex; } }
+  .nav-tab-btn {
+    flex: 1; min-width: 0; max-width: 88px;
+    height: 56px;
+    border: none; background: transparent;
+    color: var(--label-secondary);
+    cursor: pointer; padding: 4px 2px;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px;
+    border-radius: var(--r-sm);
+    font: var(--weight-medium) 0.62rem/1 var(--font-sans);
+    transition: color var(--duration-fast) var(--ease-standard),
+                background var(--duration-fast) var(--ease-standard);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-tab-btn:active { background: var(--bg-tinted); }
+  .nav-tab-btn svg, .nav-tab-btn i { width: 22px; height: 22px; }
+  .nav-tab-btn.active { color: var(--tint-blue); }
+  .nav-tab-btn .nav-tab-label { font-size: 0.62rem; letter-spacing: 0.01em; }
+
+  /* Mobile bottom-tab "More" overflow sheet */
+  .nav-more-sheet {
+    display: none;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: 90;
+    background: var(--mat-thick);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-top-left-radius: var(--r-lg); border-top-right-radius: var(--r-lg);
+    padding: var(--s-3) var(--s-4) calc(var(--s-4) + env(safe-area-inset-bottom)) var(--s-4);
+    box-shadow: var(--shadow-sheet);
+  }
+  .nav-more-sheet.open { display: block; animation: sv-more-up 280ms var(--ease-emphasized); }
+  @keyframes sv-more-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .nav-more-sheet .nms-handle {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--label-quaternary);
+    margin: 0 auto var(--s-3);
+  }
+  .nav-more-sheet .nms-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-2);
+  }
+  .nav-more-sheet .nms-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: var(--s-3) 4px; border-radius: var(--r-sm);
+    background: var(--bg-tinted); color: var(--label-primary);
+    border: none; cursor: pointer;
+    font: var(--weight-medium) var(--text-caption1)/1.2 var(--font-sans);
+    text-align: center;
+  }
+  .nav-more-sheet .nms-item:active { background: var(--bg-layer-3); }
+  .nav-more-sheet .nms-item svg, .nav-more-sheet .nms-item i { width: 20px; height: 20px; color: var(--label-secondary); }
+  .nav-more-sheet .nms-item.active { color: var(--tint-blue); }
+  .nav-more-sheet .nms-item.active svg, .nav-more-sheet .nms-item.active i { color: var(--tint-blue); }
+
+  .nav-more-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 89;
+    background: rgba(0,0,0,0.35); backdrop-filter: blur(2px);
+  }
+  .nav-more-backdrop.open { display: block; animation: sv-fade-in 180ms var(--ease-standard); }
+  @keyframes sv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Light mode adjustments */
+  body.light .header-row {
+    background: var(--mat-thick);
+  }
+  body.light #session-view #cards .card {
+    background: var(--bg-layer-2);
+    box-shadow: var(--shadow-sm);
+  }
+  body.light #notif-btn:hover, body.light .settings-btn:hover { background: var(--bg-layer-3); }
+
 </style>
 </head>
 <body>
@@ -11616,7 +12171,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <h1 id="brand-header" style="margin:0;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="openAbout()"><span id="brand-icon-header"></span><span id="brand-name-header">amux</span></h1>
     <span id="conn-status" class="conn-status online" onclick="showQueueModal()"></span>
     <div style="position:relative;">
-      <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:1rem;opacity:0.7;line-height:1;position:relative;" aria-label="Notifications">&#x1F514;<span id="notif-badge" class="notif-badge" style="display:none;">0</span></button>
+      <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications" aria-label="Notifications"><i data-lucide="bell"></i><span id="notif-badge" class="notif-badge" style="display:none;">0</span></button>
       <div id="notif-panel" class="notif-panel">
         <div class="notif-panel-header">
           <span>Notifications</span>
@@ -11642,14 +12197,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       <div class="active-dropdown" id="active-dropdown"></div>
     </div>
     <div class="header-add-wrap">
-      <button class="header-add-btn" id="add-btn" onclick="event.stopPropagation();toggleAddMenu()">+</button>
+      <button class="header-add-btn" id="add-btn" onclick="event.stopPropagation();toggleAddMenu()" aria-label="Add"><i data-lucide="plus"></i></button>
       <div class="header-add-menu" id="add-menu">
         <div class="card-menu-item" onclick="event.stopPropagation();closeAddMenu();openCreate()"><span class="mi">&#x2795;</span> New session</div>
         <div class="card-menu-item" onclick="event.stopPropagation();closeAddMenu();openConnect()"><span class="mi">&#x1F517;</span> Connect tmux</div>
       </div>
     </div>
     <div class="settings-wrap">
-      <button class="settings-btn" id="settings-btn" onclick="event.stopPropagation();toggleSettings()">&#x2699;</button>
+      <button class="settings-btn" id="settings-btn" onclick="event.stopPropagation();toggleSettings()" aria-label="Settings"><i data-lucide="settings"></i></button>
       <div class="settings-menu" id="settings-menu">
         <div class="settings-section" style="padding:10px 14px;">
           <button onclick="_wtRestart();closeSettings();" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
@@ -11814,16 +12369,41 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   <button id="tab-habits" onclick="switchView('habits')">Habits</button>
 </div>
 <div class="tab-customize-wrap">
-  <button class="tab-customize-btn" onclick="event.stopPropagation();toggleTabCustomizer()" title="Show/hide tabs">&#x229E;</button>
+  <button class="tab-customize-btn" onclick="event.stopPropagation();toggleTabCustomizer()" title="Show/hide tabs" aria-label="Customize tabs"><i data-lucide="layout-grid"></i></button>
   <div class="tab-customizer-menu" id="tab-customizer-menu" style="display:none;"></div>
 </div>
 </div>
+<!-- Mobile bottom tab bar (≤600px) — 4 primary + More -->
+<nav class="nav-tab-bar-mobile" id="nav-tab-bar-mobile" aria-label="Primary">
+  <button class="nav-tab-btn" data-nav="sessions" onclick="switchView('sessions')">
+    <i data-lucide="layers"></i><span class="nav-tab-label">Sessions</span>
+  </button>
+  <button class="nav-tab-btn" data-nav="board" onclick="switchView('board')">
+    <i data-lucide="kanban-square"></i><span class="nav-tab-label">Board</span>
+  </button>
+  <button class="nav-tab-btn" data-nav="files" onclick="switchView('files')">
+    <i data-lucide="folder"></i><span class="nav-tab-label">Files</span>
+  </button>
+  <button class="nav-tab-btn" data-nav="notes" onclick="switchView('notes')">
+    <i data-lucide="notebook-pen"></i><span class="nav-tab-label">Notes</span>
+  </button>
+  <button class="nav-tab-btn" data-nav="more" onclick="event.stopPropagation();_navMoreOpen()" aria-label="More">
+    <i data-lucide="more-horizontal"></i><span class="nav-tab-label">More</span>
+  </button>
+</nav>
+<div class="nav-more-backdrop" id="nav-more-backdrop" onclick="_navMoreClose()"></div>
+<div class="nav-more-sheet" id="nav-more-sheet" role="dialog" aria-label="More tabs">
+  <div class="nms-handle" onclick="_navMoreClose()"></div>
+  <div class="nms-grid" id="nav-more-grid"></div>
+</div>
 <div id="session-view">
-<div style="padding:0 12px;margin-top:4px;display:flex;align-items:center;gap:8px;">
-  <div class="search-wrap" id="search-wrap" style="flex:1;">
-    <input class="search-input" id="search-input" type="text" placeholder="Search sessions..." autocomplete="off" autocorrect="off"
-      oninput="searchQuery=this.value;document.getElementById('search-wrap').classList.toggle('has-value',!!this.value);onSearchInput()">
-    <button class="search-clear" onclick="event.stopPropagation();clearSearch()">&#x2715;</button>
+<div class="sv-search-row">
+  <div class="search-wrap" id="search-wrap">
+    <span class="sv-search-icon" aria-hidden="true"><i data-lucide="search"></i></span>
+    <input class="search-input" id="search-input" type="text" placeholder="Search sessions" autocomplete="off" autocorrect="off"
+      oninput="searchQuery=this.value;document.getElementById('search-wrap').classList.toggle('has-value',!!this.value);onSearchInput()"
+      onkeydown="if(event.key==='Escape'&&this.value){event.preventDefault();clearSearch();}">
+    <button class="search-clear" onclick="event.stopPropagation();clearSearch()" aria-label="Clear search">&#x2715;</button>
   </div>
   <button id="log-search-btn" class="tile-btn log-search-btn" onclick="toggleLogSearch()" title="Search inside session logs">
     <svg class="log-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="14" x2="11" y2="14"/></svg>
@@ -14469,8 +15049,15 @@ function render() {
     if (_initialLoad) {
       el.innerHTML = '<div class="empty"><span class="loading-spinner"></span>Connecting to server…</div>';
     } else {
-      el.innerHTML = '<div class="empty">No sessions yet.<br>Tap <strong>+</strong> to create one.' +
-        (!online ? '<br><span style="color:var(--yellow)">You\'re offline — sessions created now will sync when connected.</span>' : '') + '</div>';
+      el.innerHTML =
+        '<div class="sv-empty">' +
+          '<div class="sv-empty-icon"><i data-lucide="layers"></i></div>' +
+          '<h3>No sessions yet</h3>' +
+          '<p>Start a tmux-backed Claude session and it will appear here. They keep running even when you close the tab.</p>' +
+          '<button class="sv-empty-cta" onclick="openCreate()"><i data-lucide="plus"></i> Start a session</button>' +
+          (!online ? '<p style="color:var(--tint-orange);">You\'re offline — sessions created now will sync when connected.</p>' : '') +
+        '</div>';
+      try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch(e) {}
     }
     _renderArchivedSection();
     if (focusedId) { const f = document.getElementById(focusedId); if (f) f.focus({ preventScroll: true }); }
@@ -14719,9 +15306,21 @@ function render() {
       const name = el.id.replace('card-chips-', '');
       if (name) renderChips(el, name, false);
     });
+    // Lucide refresh for any newly-injected icons in cards/empty state
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch(e) {}
+    // Stagger entrance for cards on initial render only (cheap, no jitter on updates)
+    if (_initialLoad === false && _svFirstRender) {
+      _svFirstRender = false;
+      const cardsEls = document.querySelectorAll('#session-view #cards .card');
+      cardsEls.forEach((c, i) => {
+        c.style.animationDelay = Math.min(i * 30, 240) + 'ms';
+        c.classList.add('sv-enter');
+      });
+    }
   });
 }
 
+let _svFirstRender = true;
 
 function esc(s) {
   const d = document.createElement('div');
@@ -22075,15 +22674,32 @@ function _chromeSave() {
 
 function switchView(view) {
   if (document.getElementById('grid-view').classList.contains('active')) exitGridMode();
+  const _prev = activeView;
   activeView = view;
+  // Use View Transitions API for cross-fade between views (Chrome/Safari 18+)
+  const _doSwap = () => {
   const _svIds = ['session','board','calendar','scheduler','files','logs','notes','crm','map','metrics','torrents','terminal','browser','graph','journal','habits'];
   const _svNames = ['sessions','board','calendar','scheduler','files','logs','notes','crm','map','metrics','torrents','terminal','browser','graph','journal','habits'];
   const _svDisplay = ['','','flex','','flex','flex','flex','flex','flex','flex','flex','flex','','flex','flex','flex'];
   for (let i = 0; i < _svIds.length; i++) {
     const ve = document.getElementById(_svIds[i] + '-view');
-    if (ve) ve.style.display = view === _svNames[i] ? (_svDisplay[i] || '') : 'none';
+    if (ve) {
+      const shouldShow = view === _svNames[i];
+      ve.style.display = shouldShow ? (_svDisplay[i] || '') : 'none';
+      if (shouldShow && _prev !== view) {
+        ve.classList.remove('sv-view-fade'); void ve.offsetWidth; ve.classList.add('sv-view-fade');
+      }
+    }
     const te = document.getElementById('tab-' + _svNames[i]);
     if (te) te.classList.toggle('active', view === _svNames[i]);
+  }
+  // Sync mobile bottom-tab active state
+  try { _navSyncActive(view); } catch(e) {}
+  };
+  if (_prev !== view && document.startViewTransition) {
+    try { document.startViewTransition(_doSwap); } catch(e) { _doSwap(); }
+  } else {
+    _doSwap();
   }
   if (view === 'calendar') { fetchBoard().then(() => { _fcInit(); }); }
   if (view === 'torrents') _torrentLoad();
@@ -22117,6 +22733,62 @@ function switchView(view) {
     if (boardTimer) { clearInterval(boardTimer); boardTimer = null; }
   }
 }
+
+// ── Mobile bottom tab bar (chrome redesign) ─────────────────────────────────
+const _NAV_PRIMARY = ['sessions','board','files','notes'];
+const _NAV_MORE = [
+  { id: 'calendar',  label: 'Calendar',  icon: 'calendar' },
+  { id: 'scheduler', label: 'Scheduler', icon: 'clock' },
+  { id: 'logs',      label: 'Logs',      icon: 'scroll-text' },
+  { id: 'crm',       label: 'People',    icon: 'users' },
+  { id: 'map',       label: 'Map',       icon: 'map' },
+  { id: 'metrics',   label: 'Metrics',   icon: 'activity' },
+  { id: 'torrents',  label: 'Torrents',  icon: 'download' },
+  { id: 'terminal',  label: 'Terminal',  icon: 'terminal' },
+  { id: 'browser',   label: 'Browser',   icon: 'globe' },
+  { id: 'graph',     label: 'Graph',     icon: 'network' },
+  { id: 'journal',   label: 'Journal',   icon: 'book' },
+  { id: 'habits',    label: 'Habits',    icon: 'check-square' },
+];
+function _navSyncActive(view) {
+  const bar = document.getElementById('nav-tab-bar-mobile'); if (!bar) return;
+  bar.querySelectorAll('.nav-tab-btn').forEach(b => {
+    const v = b.getAttribute('data-nav');
+    if (v === 'more') {
+      b.classList.toggle('active', !_NAV_PRIMARY.includes(view) && view !== 'more');
+    } else {
+      b.classList.toggle('active', v === view);
+    }
+  });
+}
+function _navMoreOpen() {
+  const grid = document.getElementById('nav-more-grid');
+  if (!grid) return;
+  grid.innerHTML = _NAV_MORE.map(m =>
+    `<button class="nms-item${activeView === m.id ? ' active' : ''}" onclick="_navMoreClose();switchView('${m.id}')">` +
+      `<i data-lucide="${m.icon}"></i>` +
+      `<span>${m.label}</span>` +
+    `</button>`
+  ).join('');
+  document.getElementById('nav-more-backdrop').classList.add('open');
+  document.getElementById('nav-more-sheet').classList.add('open');
+  try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch(e) {}
+}
+function _navMoreClose() {
+  const bd = document.getElementById('nav-more-backdrop');
+  const sh = document.getElementById('nav-more-sheet');
+  if (bd) bd.classList.remove('open');
+  if (sh) sh.classList.remove('open');
+}
+// Re-render Lucide icons on demand
+function _lucideRefresh() {
+  try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch(e) {}
+}
+document.addEventListener('DOMContentLoaded', () => {
+  _lucideRefresh();
+  try { _navSyncActive(activeView); } catch(e) {}
+  try { _chromeUpdateOffsets && _chromeUpdateOffsets(); } catch(e) {}
+});
 
 // ── Habits tab ───────────────────────────────────────────────────────────────
 let _habits = [];
