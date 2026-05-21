@@ -13825,6 +13825,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .settings-btn:active { background: var(--bg-layer-3); }
   .settings-btn svg, .settings-btn i { width: 18px; height: 18px; }
 
+  /* Mobile-only command palette trigger — Cmd+K is hardware-keyboard only */
+  .palette-mobile-btn {
+    display: none;
+    width: 44px; height: 44px;
+    border-radius: var(--r-full); border: none;
+    background: transparent; color: var(--label-secondary);
+    cursor: pointer; padding: 0; font-size: 0; line-height: 0;
+    align-items: center; justify-content: center;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+  .palette-mobile-btn:hover { background: var(--bg-tinted); color: var(--label-primary); }
+  .palette-mobile-btn:active { background: var(--bg-layer-3); }
+  .palette-mobile-btn svg, .palette-mobile-btn i { width: 20px; height: 20px; }
+  @media (max-width: 600px) {
+    .palette-mobile-btn { display: inline-flex; }
+  }
+
   /* Active sessions pill */
   .btn-active {
     min-height: 36px; height: 36px; padding: 0 var(--s-3);
