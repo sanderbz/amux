@@ -10012,11 +10012,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   /* ── LiveTerminal xterm host (replaces #peek-body innerHTML rendering) ── */
   /* Terminal surface stays dark in light mode too — Apple's Terminal.app
      defaults to dark in light system mode. ANSI colors are tuned for dark
-     backgrounds; rendering them on a white sheet fails WCAG AA contrast. */
+     backgrounds; rendering them on a white sheet fails WCAG AA contrast.
+     !important needed to beat the legacy `#peek-body.overlay-body` rule
+     that forces var(--bg-base) (white in light mode). */
   #peek-body.live-term-host,
+  #peek-overlay.focus-shell #peek-body.live-term-host,
   .focus-sheet-surface .live-term-host {
     padding: var(--s-3) 0 var(--s-3) var(--s-3);
-    background: #0a0a0c;
+    background: #0a0a0c !important;
     color-scheme: dark;
     overflow: hidden;
   }
