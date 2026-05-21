@@ -8890,6 +8890,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     padding: 11px 16px; font-size: 0.88rem; color: var(--text); cursor: pointer; }
   .explore-menu-item:active, .explore-menu-item:hover { background: var(--hover); }
 
+  /* WAVE1-MARKER-TEST */
+
   /* Connect session list */
   /* FullCalendar theme overrides — mapped to Apple-grade tokens */
   #fc-container {
@@ -10966,41 +10968,75 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   .bv-btn.active { background: rgba(88,166,255,0.15); color: var(--accent); }
   .bv-btn:active { background: rgba(88,166,255,0.1); }
-  /* Session-grouped view */
-  .board-session-group { margin-bottom: 8px; min-width: 0; }
-  .board-session-header {
-    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-    cursor: pointer; -webkit-tap-highlight-color: transparent;
-    border-radius: 8px; transition: background 0.12s; user-select: none;
+  /* ── Session-grouped view (single-column accordion sections) ── */
+  .board-columns-list {
+    display: block; padding-bottom: var(--s-6); min-height: 200px;
   }
-  .board-session-header:active { background: rgba(255,255,255,0.04); }
+  .board-session-group {
+    margin-bottom: var(--s-3); min-width: 0;
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .board-session-header {
+    display: flex; align-items: center; gap: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .board-session-header:hover { background: var(--bg-tinted); }
   .board-session-chevron {
-    font-size: 0.6rem; color: var(--dim); transition: transform 0.2s; flex-shrink: 0; width: 12px;
+    width: 14px; height: 14px;
+    color: var(--label-tertiary);
+    transition: transform var(--duration-medium) var(--ease-emphasized);
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
   }
   .board-session-chevron.open { transform: rotate(90deg); }
-  .board-session-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .board-session-name {
+    font: var(--weight-semibold) var(--text-subhead)/1.2 var(--font-sans);
+    color: var(--label-primary);
+  }
   .board-session-counts {
-    display: flex; gap: 6px; margin-left: auto; flex-shrink: 0;
+    display: flex; gap: var(--s-1); margin-left: auto; flex-shrink: 0;
   }
   .board-session-count {
-    font-size: 0.62rem; padding: 2px 6px; border-radius: 8px; font-weight: 500;
+    padding: 2px var(--s-2); border-radius: var(--r-xs);
+    font: var(--weight-medium) var(--text-caption1)/1.4 var(--font-sans);
+    background: var(--bg-tinted); color: var(--label-secondary);
   }
-  .board-session-count.todo { background: rgba(139,148,158,0.12); color: var(--dim); }
-  .board-session-count.doing { background: rgba(210,153,34,0.15); color: var(--yellow); }
-  .board-session-count.done { background: rgba(63,185,80,0.15); color: var(--green); }
-  .board-session-items { padding: 0 4px 4px 20px; }
-  .board-session-items .board-card { margin-bottom: 6px; }
-  .tag-group-body { padding: 0 0 4px 0; min-width: 0; overflow: hidden; }
+  .board-session-count.todo { background: var(--bg-tinted); color: var(--label-secondary); }
+  .board-session-count.doing {
+    background: color-mix(in srgb, var(--tint-orange) 18%, transparent);
+    color: var(--tint-orange);
+  }
+  .board-session-count.done {
+    background: color-mix(in srgb, var(--tint-green) 18%, transparent);
+    color: var(--tint-green);
+  }
+  .board-session-items {
+    padding: var(--s-2) var(--s-3) var(--s-3);
+    display: flex; flex-direction: column; gap: var(--s-2);
+  }
+  .tag-group-body { padding: 0; min-width: 0; overflow: hidden; }
   .board-session-items .board-card .board-status-dot {
-    display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: var(--s-2); flex-shrink: 0;
+    align-self: center;
   }
-  .board-status-dot.backlog { background: var(--accent); }
-  .board-status-dot.todo { background: var(--dim); }
-  .board-status-dot.doing { background: var(--yellow); }
-  .board-status-dot.done { background: var(--green); }
-  .board-status-dot.discarded { background: rgba(139,148,158,0.4); }
-  .board-session-empty { color: rgba(139,148,158,0.4); font-size: 0.75rem; padding: 10px 0; text-align: center; }
-  .board-columns-list { display: block; padding-bottom: 16px; min-height: 200px; }
+  .board-status-dot.backlog { background: var(--tint-blue); }
+  .board-status-dot.todo { background: var(--label-tertiary); }
+  .board-status-dot.doing { background: var(--tint-orange); }
+  .board-status-dot.done { background: var(--tint-green); }
+  .board-status-dot.discarded { background: var(--label-quaternary); }
+  .board-session-empty {
+    color: var(--label-tertiary);
+    font: var(--text-footnote) var(--font-sans);
+    padding: var(--s-8) var(--s-3); text-align: center;
+  }
   /* Board card detail */
   .board-detail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 12px; -webkit-overflow-scrolling: touch; }
   .board-detail-key { font-size: 0.72rem; color: var(--dim); font-family: "SF Mono","Fira Code",monospace; margin-bottom: 8px; }
@@ -29193,43 +29229,47 @@ function _torrentRender() {
     const pct = t.total > 0 ? Math.round(t.completed / t.total * 100) : 0;
     const speed = t.speed > 0 ? _fmtBytes(t.speed) + '/s' : '';
     const size = t.total > 0 ? _fmtBytes(t.completed) + ' / ' + _fmtBytes(t.total) : '';
-    const statusCls = t.status === 'complete' ? 'color:var(--green)' : t.status === 'error' ? 'color:var(--red)' : t.status === 'paused' ? 'color:var(--yellow)' : '';
+    const chipCls = t.status === 'complete' ? 'chip-ios chip-ios-success'
+                  : t.status === 'error'    ? 'chip-ios chip-ios-danger'
+                  : t.status === 'paused'   ? 'chip-ios chip-ios-warning'
+                  : 'chip-ios chip-ios-info';
     // Control buttons based on status
     const isActive = t.status === 'active';
     const isPaused = t.status === 'paused' || t.status === 'waiting';
     const isDone = t.status === 'complete';
     const ctrlBtns = isDone
-      ? `<button onclick="_torrentRemove('${t.gid}')" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.78rem;" title="Remove">&#x2716;</button>`
-      : `${isActive ? `<button onclick="_torrentAction('${t.gid}','pause')" style="background:none;border:none;color:var(--yellow);cursor:pointer;font-size:0.85rem;" title="Pause">&#x23F8;</button>` : ''}
-         ${isPaused ? `<button onclick="_torrentAction('${t.gid}','resume')" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:0.85rem;" title="Resume">&#x25B6;</button>` : ''}
-         <button onclick="_torrentAction('${t.gid}','remove')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:0.85rem;" title="Stop &amp; remove">&#x23F9;</button>`;
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <strong style="flex:1;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.name || t.gid)}</strong>
-        <span style="font-size:0.75rem;${statusCls}">${esc(t.status)}</span>
-        ${speed ? `<span style="font-size:0.75rem;color:var(--accent);">${speed}</span>` : ''}
+      ? `<button class="btn-ios btn-ios-ghost" onclick="_torrentRemove('${t.gid}')" aria-label="Remove" title="Remove" style="min-width:36px;min-height:36px;padding:0;"><i data-lucide="x" style="width:16px;height:16px;"></i></button>`
+      : `${isActive ? `<button class="btn-ios btn-ios-ghost" onclick="_torrentAction('${t.gid}','pause')" aria-label="Pause" title="Pause" style="min-width:36px;min-height:36px;padding:0;color:var(--tint-orange);"><i data-lucide="pause" style="width:16px;height:16px;"></i></button>` : ''}
+         ${isPaused ? `<button class="btn-ios btn-ios-ghost" onclick="_torrentAction('${t.gid}','resume')" aria-label="Resume" title="Resume" style="min-width:36px;min-height:36px;padding:0;color:var(--tint-green);"><i data-lucide="play" style="width:16px;height:16px;"></i></button>` : ''}
+         <button class="btn-ios btn-ios-ghost" onclick="_torrentAction('${t.gid}','remove')" aria-label="Stop and remove" title="Stop &amp; remove" style="min-width:36px;min-height:36px;padding:0;color:var(--tint-red);"><i data-lucide="square" style="width:16px;height:16px;"></i></button>`;
+    return `<div class="surface" style="padding:var(--s-3) var(--s-4);">
+      <div style="display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2);">
+        <strong style="flex:1;font-size:var(--text-subhead);font-weight:var(--weight-semibold);color:var(--label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.name || t.gid)}</strong>
+        <span class="${chipCls}">${esc(t.status)}</span>
+        ${speed ? `<span style="font-size:var(--text-caption1);color:var(--tint-blue);font-variant-numeric:tabular-nums;">${speed}</span>` : ''}
         ${ctrlBtns}
       </div>
-      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:${isPaused ? 'var(--yellow)' : 'var(--accent)'};border-radius:2px;transition:width 0.3s;"></div>
+      <div style="height:4px;background:var(--bg-tinted);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${isPaused ? 'var(--tint-orange)' : 'var(--tint-blue)'};border-radius:2px;transition:width 0.3s var(--ease-standard);"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.75rem;color:var(--dim);">
+      <div style="display:flex;justify-content:space-between;margin-top:var(--s-1);font-size:var(--text-caption1);color:var(--label-secondary);font-variant-numeric:tabular-nums;">
         <span>${size}</span><span>${pct}%</span>
       </div>
-      ${t.files && t.files.length ? `<div style="margin-top:6px;font-size:0.78rem;">
+      ${t.files && t.files.length ? `<div style="margin-top:var(--s-2);font-size:var(--text-footnote);">
         ${t.files.map(f => {
           const isVideo = /\.(mp4|mkv|avi|mov|webm|m4v)$/i.test(f.path);
           const fname = f.path.split('/').pop();
-          return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);">${esc(fname)}</span>
-            <span style="color:var(--dim);font-size:0.72rem;">${_fmtBytes(f.size)}</span>
-            ${f.complete && isVideo ? `<button onclick="_playVideo('${t.gid}','${encodeURIComponent(f.path)}')" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.72rem;cursor:pointer;">&#9654; Play</button>` : ''}
-            ${f.complete ? `<a href="${API}/api/torrents/${t.gid}/file?path=${encodeURIComponent(f.path)}" download style="color:var(--accent);font-size:0.72rem;text-decoration:none;">Download</a>` : ''}
+          return `<div style="display:flex;align-items:center;gap:var(--s-2);padding:2px 0;">
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--label-primary);">${esc(fname)}</span>
+            <span style="color:var(--label-tertiary);font-size:var(--text-caption1);font-variant-numeric:tabular-nums;">${_fmtBytes(f.size)}</span>
+            ${f.complete && isVideo ? `<button class="btn-ios btn-ios-primary" onclick="_playVideo('${t.gid}','${encodeURIComponent(f.path)}')" style="min-height:28px;padding:0 var(--s-2);font-size:var(--text-caption1);"><i data-lucide="play" style="width:11px;height:11px;"></i> Play</button>` : ''}
+            ${f.complete ? `<a href="${API}/api/torrents/${t.gid}/file?path=${encodeURIComponent(f.path)}" download style="color:var(--tint-blue);font-size:var(--text-caption1);text-decoration:none;font-weight:var(--weight-medium);">Download</a>` : ''}
           </div>`;
         }).join('')}
       </div>` : ''}
     </div>`;
   }).join('');
+  try { window.lucide && lucide.createIcons && lucide.createIcons(); } catch(e) {}
 }
 
 function _fmtBytes(b) {
