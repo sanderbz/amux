@@ -10022,6 +10022,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: #0a0a0c !important;
     color-scheme: dark;
     overflow: hidden;
+    /* Guarantee a measurable height even at peek detent so FitAddon
+       computes ≥1 row immediately. Without this, the sheet body can be
+       0px mid-transition and FitAddon falls back to a 1-row terminal
+       that never grows because no resize event fires. */
+    min-height: 120px;
   }
   #peek-body.live-term-host .xterm,
   #peek-body.live-term-host .xterm-viewport,
@@ -21679,6 +21684,17 @@ function _syncPeekOverlayToVisualViewport() {
           window._liveTerm.focus();
         }
       }, 60);
+      // After the iOS sheet's open transition has settled (peek detent),
+      // re-fit so FitAddon recomputes against the now-correct sheet body
+      // height. The initial fit in LiveTerminal's constructor often runs
+      // while the sheet body is still 0px (CSS transition mid-flight) and
+      // ResizeObserver alone doesn't always catch the steady-state size.
+      setTimeout(() => {
+        if (window._liveTerm) {
+          try { window._liveTerm._safeFit(); } catch (e) {}
+          try { window._liveTerm._sendResize(); } catch (e) {}
+        }
+      }, 50);
       return true;
     } catch (e) {
       console.warn('[openPeek] LiveTerminal mount failed, falling back to poll', e);
@@ -21857,6 +21873,17 @@ function _syncPeekOverlayToVisualViewport() {
       this.el.classList.toggle('ios-sheet--peek', this.currentDetent === 0);
       this.el.classList.toggle('ios-sheet--half', this.currentDetent === 1);
       this.el.classList.toggle('ios-sheet--full', this.currentDetent === 2);
+      // After detent class flips, the sheet body height changes via CSS
+      // transition — wait two rAF ticks so layout has settled, then ask
+      // the LiveTerminal to re-fit (recompute cols/rows) and notify the
+      // server pty of the new size. Without this, FitAddon can compute
+      // 0 rows at peek detent before the transition finishes.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { window._liveTerm && window._liveTerm._safeFit && window._liveTerm._safeFit(); } catch (e) {}
+          try { window._liveTerm && window._liveTerm._sendResize && window._liveTerm._sendResize(); } catch (e) {}
+        });
+      });
     }
 
     setDetent(idx, anim) {
