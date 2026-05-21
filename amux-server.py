@@ -10341,6 +10341,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .focus-canvas {
     position: relative;
     min-height: 0; overflow: hidden;
+    /* Pin to the 1fr row of the focus-shell grid (template:
+       auto auto auto 1fr auto). Without an explicit row assignment,
+       auto-flow places it in the next available row — and when
+       focus-search-bar is display:none (the default :not(.open) state
+       at line 11177), canvas slides up to row 3 (auto, collapses to
+       0) and dock takes the 1fr (ballooning to 192px). Explicit
+       grid-row keeps canvas in the 1fr cell regardless of whether
+       earlier siblings are in-flow. */
+    grid-row: 4;
+  }
+  #peek-overlay.focus-shell .focus-dock { grid-row: 5; }
+  /* Desktop (non-ios-sheet) variant uses a 4-row template:
+     auto auto 1fr auto — there canvas is row 3 and dock row 4. */
+  @media (min-width: 769px) {
+    #peek-overlay.focus-shell:not(.ios-sheet) .focus-canvas { grid-row: 3; }
+    #peek-overlay.focus-shell:not(.ios-sheet) .focus-dock { grid-row: 4; }
   }
   #peek-overlay.focus-shell .focus-canvas-fill {
     position: absolute; inset: 0;
