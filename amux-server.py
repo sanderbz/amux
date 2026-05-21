@@ -8675,7 +8675,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .btn:active { background: var(--border); }
   .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   .btn.danger { border-color: var(--red); color: var(--red); }
-  .provider-btn { flex:1; font-size:0.82rem; padding:7px 10px; transition: all 0.15s; }
+  .provider-btn { flex:1; font-size:0.82rem; padding:7px 10px; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
   .provider-btn.selected { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
   .chips { display: flex; gap: 6px; flex-wrap: nowrap; margin-bottom: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; touch-action: pan-x; overscroll-behavior-x: contain; }
   .chips::-webkit-scrollbar { display: none; }
@@ -8804,7 +8804,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     border: 1px solid rgba(255,255,255,0.15); background: rgba(13,17,23,0.85);
     color: var(--dim); font-size: 0.75rem; cursor: pointer;
     display: flex; align-items: center; gap: 4px;
-    -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
     white-space: nowrap;
   }
   .peek-copy-btn:active { background: var(--accent); color: #fff; }
@@ -8859,7 +8861,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .file-view-tabs { display: flex; gap: 3px; flex-shrink: 0; }
   .file-view-tab { padding: 4px 11px; border-radius: 6px; border: 1px solid var(--border);
     background: none; color: var(--dim); font-size: 0.78rem; cursor: pointer;
-    -webkit-tap-highlight-color: transparent; transition: all 0.15s; }
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard); }
   .file-view-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .file-overlay-body.file-raw { white-space: pre-wrap; word-break: break-word; }
   .file-overlay-body.file-image { display:flex;align-items:center;justify-content:center;background:var(--bg);white-space:normal; }
@@ -10645,9 +10650,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .tag-filters:empty { display: none; }
   .tag-filter {
     font-size: 0.72rem; padding: 4px 10px; border-radius: 12px;
-    background: rgba(88,166,255,0.08); color: var(--dim);
-    border: 1px solid var(--border); cursor: pointer;
-    -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    background: var(--bg-tinted); color: var(--label-secondary);
+    border: 1px solid var(--sep-non-opaque); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard);
     white-space: nowrap; flex-shrink: 0;
   }
   .tag-filter:active { background: rgba(88,166,255,0.15); }
@@ -10949,7 +10957,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 0.75rem; font-weight: 600; white-space: nowrap;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0; transition: all 0.2s;
+    flex-shrink: 0;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
     padding: 4px 10px; border-radius: 12px; border: none;
     line-height: 1;
   }
