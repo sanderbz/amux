@@ -9989,6 +9989,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: var(--tint-yellow);
     animation: conn-blink 1s ease-in-out infinite;
   }
+  /* Initial 'connecting' state is intentionally neutral — we expect the
+     handshake to complete in <500ms, so don't flash a problem color
+     on every open. Only after 2s without progress does it transition
+     to 'reconnecting' (yellow). */
+  .focus-conn-dot[data-state="connecting"] {
+    background: var(--label-tertiary);
+  }
   .focus-conn-dot[data-state="offline"] { background: var(--tint-red); }
   @keyframes conn-pulse {
     0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 40%, transparent); }
@@ -35980,7 +35987,12 @@ async function _jrnlSaveConfig() {
       const dot = document.getElementById('peek-conn-dot');
       if (dot) {
         dot.dataset.state = state;
-        const labels = { live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline' };
+        const labels = {
+          live: 'Live',
+          connecting: 'Connecting…',
+          reconnecting: 'Reconnecting…',
+          offline: 'Offline'
+        };
         dot.title = 'Live connection: ' + (labels[state] || state);
       }
     }
@@ -36043,10 +36055,19 @@ async function _jrnlSaveConfig() {
       }
       ws.binaryType = 'arraybuffer';
       this.ws = ws;
-      this._setStatus('reconnecting');
+      // Show a neutral 'connecting' dot immediately, then escalate to
+      // 'reconnecting' (yellow blink) only if the handshake hasn't finished
+      // after 2s. The healthy path completes in <500ms so the user never
+      // sees a yellow warning on a normal open.
+      this._setStatus('connecting');
+      clearTimeout(this._statusFlashTimer);
+      this._statusFlashTimer = setTimeout(() => {
+        if (this.state !== 'live' && !this._destroyed) this._setStatus('reconnecting');
+      }, 2000);
 
       ws.onopen = () => {
         if (this._destroyed) { try { ws.close(); } catch(e){} return; }
+        clearTimeout(this._statusFlashTimer);
         this._backoff = 300;  // reset
         this._setStatus('live');
         this._lastSentSize = null;
@@ -36093,6 +36114,8 @@ async function _jrnlSaveConfig() {
     }
 
     _scheduleReconnect() {
+      // A genuine reconnect (after a drop) IS a problem state — show it.
+      clearTimeout(this._statusFlashTimer);
       this._setStatus('reconnecting');
       clearTimeout(this._reconnectTimer);
       const delay = Math.min(this._backoff, 5000);
@@ -36124,6 +36147,8 @@ async function _jrnlSaveConfig() {
       this._destroyed = true;
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
+      clearTimeout(this._statusFlashTimer);
+      this._statusFlashTimer = null;
       if (this._resizeObserver) {
         try { this._resizeObserver.disconnect(); } catch (e) {}
         this._resizeObserver = null;
