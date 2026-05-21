@@ -5325,10 +5325,12 @@ def list_sessions() -> list:
                     continue
                 intelligible.append(cl[:200])
             if intelligible:
-                preview_lines = intelligible[-5:]
+                # 12 lines feed the overview card mini-terminal (~10 visible rows).
+                # The legacy single-line preview keeps using `preview` (last line) above.
+                preview_lines = intelligible[-12:]
             else:
                 # Fallback: show last few non-empty stripped lines (e.g. spinner/tool output during active processing)
-                preview_lines = [strip_ansi(l).strip()[:200] for l in lines[-8:] if strip_ansi(l).strip()][-5:]
+                preview_lines = [strip_ansi(l).strip()[:200] for l in lines[-16:] if strip_ansi(l).strip()][-12:]
         # Detect active model from JSONL (skip for codex — it has no Claude JSONL)
         raw_dir = cfg.get("CC_DIR", "")
         resolved_dir = str(Path(raw_dir).expanduser().resolve()) if raw_dir else ""
@@ -20629,6 +20631,99 @@ function _syncPeekOverlayToVisualViewport() {
       const dock = document.getElementById('peek-dock');
       if (dock) dock.style.transform = '';
       return result;
+    };
+  }
+})();
+
+// ── Patch: mount LiveTerminal inside #peek-body when focus mode opens ──
+//
+// This wrapper layers on top of the View Transitions wrapper above. When the
+// user opens a session, we:
+//   1. Let prior openPeek + VT wrapper run (sets up DOM, body[data-focus-mode])
+//   2. Dispose any existing LiveTerminal (e.g. when switching sessions)
+//   3. Clear #peek-body innerHTML, give it .live-term-host class
+//   4. Construct new LiveTerminal (opens WS, mounts xterm)
+// On close, we dispose the LiveTerminal so the server can free its WS subscriber.
+//
+// If LiveTerminal isn't available (xterm globals not yet loaded, or class not
+// defined yet because the post-body <script> hasn't parsed), we silently fall
+// back to the legacy polling path — refreshPeek() keeps running so nothing breaks.
+(function() {
+  const _vtOpenPeek = window.openPeek;
+  const _vtClosePeek = window.closePeek;
+
+  // Module-level instance — at most one live terminal at a time (focus mode is
+  // singular). Exposed on window so the dock send-cmd / quick-keys handlers
+  // can route through WS when available.
+  window._liveTerm = null;
+
+  function _mountLiveTerm(name) {
+    if (!window._liveTermSupported || typeof window.LiveTerminal !== 'function') {
+      return false;  // xterm globals not loaded — keep polling
+    }
+    const body = document.getElementById('peek-body');
+    if (!body) return false;
+    // Only attach when focus mode is actually showing — guards against any
+    // non-focus callers of openPeek that may reuse #peek-body for previews.
+    if (document.body.getAttribute('data-focus-mode') !== 'true') return false;
+
+    // Wipe Loading… placeholder / polled HTML
+    body.innerHTML = '';
+    body.classList.add('live-term-host');
+
+    try {
+      window._liveTerm = new window.LiveTerminal(body, name);
+      // Focus xterm so keystrokes land immediately. Defer briefly so we don't
+      // fight the dock-input autofocus on touch devices.
+      setTimeout(() => {
+        if (window._liveTerm && !document.activeElement?.matches('textarea, input')) {
+          window._liveTerm.focus();
+        }
+      }, 60);
+      return true;
+    } catch (e) {
+      console.warn('[openPeek] LiveTerminal mount failed, falling back to poll', e);
+      body.classList.remove('live-term-host');
+      window._liveTerm = null;
+      return false;
+    }
+  }
+
+  function _unmountLiveTerm() {
+    if (window._liveTerm) {
+      try { window._liveTerm.destroy(); } catch (e) {}
+      window._liveTerm = null;
+    }
+    const body = document.getElementById('peek-body');
+    if (body) {
+      body.classList.remove('live-term-host');
+      // Don't clear innerHTML — closePeek's reset path handles subsequent opens
+    }
+  }
+
+  if (typeof _vtOpenPeek === 'function') {
+    window.openPeek = function(name, opts) {
+      // Tear down any previous live terminal BEFORE the VT capture, so the
+      // outgoing frame doesn't include a half-disposed xterm.
+      if (window._liveTerm && window._liveTerm.name !== name) {
+        _unmountLiveTerm();
+      }
+      const result = _vtOpenPeek.call(this, name, opts);
+      // Mount after the VT animation has scheduled the DOM update.
+      // rAF + small delay so #peek-body is sized correctly before fit().
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (window.peekSession === name) _mountLiveTerm(name);
+        }, 32);
+      });
+      return result;
+    };
+  }
+
+  if (typeof _vtClosePeek === 'function') {
+    window.closePeek = function() {
+      _unmountLiveTerm();
+      return _vtClosePeek.call(this);
     };
   }
 })();
