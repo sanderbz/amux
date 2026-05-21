@@ -11846,19 +11846,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .map-sidebar-hdr-title { font-weight: 600; font-size: 0.85rem; }
   .map-sidebar-hdr-btns { display: flex; gap: 4px; align-items: center; }
   .map-sidebar-section { border-bottom: 1px solid var(--border); padding: 8px 10px; flex-shrink: 0; }
-  .map-section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 0.72rem; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.03em; }
+  .map-section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s-2); font-size: var(--text-caption1); font-weight: var(--weight-semibold); color: var(--label-secondary); }
   .map-tag-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .map-tag-chip { padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 500; cursor: pointer; border: 1px solid; background: transparent; transition: all 0.15s; white-space: nowrap; color: var(--dim); border-color: var(--border); }
+  .map-tag-chip { padding: 2px var(--s-2); border-radius: var(--r-full); font-size: var(--text-caption1); font-weight: var(--weight-medium); cursor: pointer; border: 1px solid var(--sep-non-opaque); background: var(--bg-tinted); transition: background var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); white-space: nowrap; color: var(--label-secondary); }
   .map-tag-chip:hover { opacity: 0.85; }
-  .map-tag-chip.all-active { background: var(--accent); color: #fff; border-color: transparent; }
+  .map-tag-chip.all-active { background: var(--tint-blue); color: #fff; border-color: transparent; }
   .map-tag-chip.tag-active { color: #fff; border-color: transparent; }
   .map-search-section { padding: 8px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
-  .map-search-section input { width: 100%; box-sizing: border-box; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.8rem; outline: none; }
-  .map-search-section input:focus { border-color: var(--accent); }
+  .map-search-section input { width: 100%; box-sizing: border-box; padding: var(--s-2) var(--s-3); min-height: 36px; background: var(--bg-tinted); border: 1px solid transparent; border-radius: var(--r-sm); color: var(--label-primary); font-size: var(--text-footnote); outline: none; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
+  .map-search-section input:focus { background: var(--bg-layer-2); border-color: var(--tint-blue); }
+  .map-search-section input::placeholder { color: var(--label-tertiary); }
   .map-pin-list { flex: 1; overflow-y: auto; padding: 4px 0; }
   .map-pin-item { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; cursor: pointer; transition: background 0.1s; }
-  .map-pin-item:hover { background: rgba(255,255,255,0.04); }
-  .map-pin-item.active { background: rgba(88,166,255,0.1); }
+  .map-pin-item:hover { background: var(--bg-tinted); }
+  .map-pin-item.active { background: color-mix(in srgb, var(--tint-blue) 14%, transparent); }
   .map-pin-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; border: 1.5px solid rgba(255,255,255,0.25); }
   .map-pin-info { flex: 1; min-width: 0; }
   .map-pin-name { font-size: 0.82rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -11877,13 +11878,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .map-coords { font-size: 0.71rem; color: var(--dim); font-family: monospace; margin-left: auto; }
   .map-drop-btn.dropping { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
   .map-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9100; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
-  .map-modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; width: 360px; max-width: 100%; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto; }
+  .map-modal-box { background: var(--bg-layer-2); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-lg); padding: var(--s-5); width: 360px; max-width: 100%; display: flex; flex-direction: column; gap: var(--s-3); box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
   .map-modal-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 2px; }
-  .map-modal-input { width: 100%; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; outline: none; font-family: inherit; box-sizing: border-box; }
-  .map-modal-input:focus { border-color: var(--accent); }
-  .map-modal-textarea { width: 100%; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; outline: none; font-family: inherit; box-sizing: border-box; resize: vertical; min-height: 60px; }
-  .map-modal-textarea:focus { border-color: var(--accent); }
-  .map-modal-hint { font-size: 0.75rem; color: var(--accent); min-height: 1em; }
+  .map-modal-input { width: 100%; padding: var(--s-2) var(--s-3); min-height: 44px; background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); color: var(--label-primary); font-size: var(--text-callout); outline: none; font-family: inherit; box-sizing: border-box; transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+  .map-modal-input:focus { border-color: var(--tint-blue); background: var(--bg-layer-2); }
+  .map-modal-textarea { width: 100%; padding: var(--s-2) var(--s-3); background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); color: var(--label-primary); font-size: var(--text-callout); outline: none; font-family: inherit; box-sizing: border-box; resize: vertical; min-height: 60px; transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+  .map-modal-textarea:focus { border-color: var(--tint-blue); background: var(--bg-layer-2); }
+  .map-modal-hint { font-size: var(--text-caption1); color: var(--tint-blue); min-height: 1em; }
   .map-modal-row { display: flex; gap: 8px; }
   .map-modal-row .map-modal-input { flex: 1; min-width: 0; }
   .map-modal-label { font-size: 0.75rem; color: var(--dim); margin-bottom: -4px; }
@@ -11895,6 +11896,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .map-tag-color-row { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; color: var(--text); }
   .map-tag-color-row input[type=color] { width: 36px; height: 28px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: none; padding: 2px; }
   .map-modal-actions { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; align-items: center; }
+  /* Leaflet — minimal token theming (avoid touching tile renderer) */
+  .leaflet-popup-content-wrapper {
+    background: var(--mat-thick) !important; color: var(--label-primary) !important;
+    border-radius: var(--r-md) !important; box-shadow: var(--shadow-md) !important;
+    backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
+  .leaflet-popup-tip { background: var(--mat-thick) !important; }
+  .leaflet-popup-content { font: var(--text-footnote) var(--font-sans) !important; color: var(--label-primary) !important; }
+  .leaflet-popup-close-button { color: var(--label-secondary) !important; }
+  .leaflet-popup-close-button:hover { color: var(--label-primary) !important; }
+  .leaflet-control-zoom a { background: var(--mat-thick) !important; color: var(--label-primary) !important;
+    border: 1px solid var(--sep-non-opaque) !important; backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); }
+  .leaflet-control-zoom a:hover { background: var(--bg-layer-3) !important; }
+  .leaflet-control-attribution { background: var(--mat-thin) !important; color: var(--label-tertiary) !important;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: var(--r-xs) !important; }
+  .leaflet-control-attribution a { color: var(--label-secondary) !important; }
+
   .map-btn-danger { background: var(--red) !important; color: #fff !important; border-color: transparent !important; }
   .map-btn-danger:hover { opacity: 0.85; }
   /* Geocoder search — lives inside sidebar, absolutely positioned over map on desktop */
@@ -19013,16 +19032,53 @@ function _syncPeekOverlayToVisualViewport() {
   }
 })();
 
-// ── Patch: wrap openPeek / closePeek to manage body[data-focus-mode] ──
+// ── Patch: wrap openPeek / closePeek to manage body[data-focus-mode] +
+//    use the View Transitions API for the card→focus morph (Chrome 111+ / Safari 18+).
 (function() {
   const _origOpenPeek = window.openPeek;
   const _origClosePeek = window.closePeek;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function _focusRunVT(fn, cardName) {
+    // Tag the source card with a view-transition-name so it morphs into the shell
+    let card = null;
+    if (cardName) {
+      card = document.querySelector('.card[data-session="' + cssEscape(cardName) + '"]')
+          || document.querySelector('[data-session="' + cssEscape(cardName) + '"]');
+    }
+    if (card) {
+      card.style.viewTransitionName = 'focus-card';
+    }
+    const ov = document.getElementById('peek-overlay');
+    if (ov) ov.style.viewTransitionName = 'focus-card';
+
+    if (!reducedMotion && typeof document.startViewTransition === 'function') {
+      const vt = document.startViewTransition(() => { fn(); });
+      vt.finished.finally(() => {
+        if (card) card.style.viewTransitionName = '';
+        if (ov) ov.style.viewTransitionName = '';
+      });
+    } else {
+      fn();
+      if (card) card.style.viewTransitionName = '';
+      if (ov) ov.style.viewTransitionName = '';
+    }
+  }
+
+  // Minimal CSS.escape polyfill (older Safari)
+  function cssEscape(s) {
+    if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^\w-]/g, '\\$&');
+  }
+
   if (typeof _origOpenPeek === 'function') {
     window.openPeek = function(name, opts) {
-      const r = _origOpenPeek.call(this, name, opts);
-      document.body.setAttribute('data-focus-mode', 'true');
-      // Set split-pane data attr if desktop wide enough
-      if (window.innerWidth >= 1024) document.body.setAttribute('data-focus-split', 'true');
+      let result;
+      _focusRunVT(() => {
+        result = _origOpenPeek.call(this, name, opts);
+        document.body.setAttribute('data-focus-mode', 'true');
+        if (window.innerWidth >= 1024) document.body.setAttribute('data-focus-split', 'true');
+      }, name);
       // Sync status dot from cache immediately
       setTimeout(() => {
         try { window._focusSyncStatusDot && window._focusSyncStatusDot(); } catch(e){}
@@ -19033,13 +19089,18 @@ function _syncPeekOverlayToVisualViewport() {
       // Re-render any lucide icons we just inserted
       if (window.lucide && lucide.createIcons) {
         setTimeout(() => { try { lucide.createIcons(); } catch(e){} }, 16);
+        setTimeout(() => { try { lucide.createIcons(); } catch(e){} }, 200);
       }
-      return r;
+      return result;
     };
   }
   if (typeof _origClosePeek === 'function') {
     window.closePeek = function() {
-      const r = _origClosePeek.call(this);
+      const closingName = window.peekSession;
+      let result;
+      _focusRunVT(() => {
+        result = _origClosePeek.call(this);
+      }, closingName);
       document.body.removeAttribute('data-focus-mode');
       document.body.removeAttribute('data-focus-split');
       // Hide subtab pill, search, sheets
@@ -19054,7 +19115,7 @@ function _syncPeekOverlayToVisualViewport() {
       // Reset dock transform
       const dock = document.getElementById('peek-dock');
       if (dock) dock.style.transform = '';
-      return r;
+      return result;
     };
   }
 })();
@@ -19075,40 +19136,10 @@ function _syncPeekOverlayToVisualViewport() {
 setTimeout(() => { try { window._dockSyncSend && _dockSyncSend(); } catch(e){} }, 100);
 
 
-// Swipe right to close peek (but never when touching the terminal body — preserve text selection)
-(function() {
-  const el = document.getElementById('peek-overlay');
-  const body = document.getElementById('peek-body');
-  let sx = 0, sy = 0, tracking = false;
-  el.addEventListener('touchstart', e => {
-    if (!el.classList.contains('active')) return;
-    // Let the terminal body handle its own touches (scrolling + text selection)
-    if (body && body.contains(e.target)) { tracking = false; return; }
-    const t = e.touches[0];
-    sx = t.clientX; sy = t.clientY; tracking = true;
-    el.style.transition = 'none';
-  }, {passive: true});
-  el.addEventListener('touchmove', e => {
-    if (!tracking || !el.classList.contains('active')) return;
-    const dx = e.touches[0].clientX - sx;
-    const dy = Math.abs(e.touches[0].clientY - sy);
-    if (dy > 30 && dx < 30) { tracking = false; el.style.transform = ''; el.style.transition = ''; return; }
-    if (dx > 10) el.style.transform = 'translateX(' + dx + 'px)';
-  }, {passive: true});
-  el.addEventListener('touchend', e => {
-    if (!tracking) { el.style.transition = ''; return; }
-    tracking = false;
-    const dx = e.changedTouches[0].clientX - sx;
-    el.style.transition = 'transform 0.25s cubic-bezier(.4,0,.2,1), opacity 0.25s, pointer-events 0s';
-    if (dx > 80) {
-      el.style.transform = 'translateX(100%)';
-      setTimeout(() => { closePeek(); el.style.transform = ''; el.style.transition = ''; }, 260);
-    } else {
-      el.style.transform = '';
-      setTimeout(() => { el.style.transition = ''; }, 260);
-    }
-  }, {passive: true});
-})();
+// (Legacy full-area swipe-right disabled — replaced by edge-swipe-back in the
+//  focus-mode JS block above. The new gesture starts from the left 28px so it
+//  doesn't fight terminal text selection or pan-scroll on touch.)
+
 
 // Rewrite localhost/127.0.0.1/0.0.0.0 URLs to use the port proxy
 // so links work when viewing the dashboard from another device or cloud
