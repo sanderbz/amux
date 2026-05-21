@@ -3177,6 +3177,22 @@ def _auto_trust_dir(work_dir: str):
     _amux_stub = r"""#!/bin/sh
 # amux CLI stub — proxies board/session commands to the amux server API
 AMUX_URL="${AMUX_URL:-https://localhost:8822}"
+# Auth token — /api/* now requires it (the server's localhost bypass excludes
+# API paths so tailscale serve can't smuggle tailnet traffic past auth). Load
+# from env or the token file the server writes at startup.
+AMUX_TOKEN="${AMUX_AUTH_TOKEN:-}"
+if [ -z "$AMUX_TOKEN" ] && [ -r "$HOME/.amux/auth_token" ]; then
+  AMUX_TOKEN=$(cat "$HOME/.amux/auth_token" 2>/dev/null | tr -d '\r\n ')
+fi
+# Override curl to inject the bearer header on every call (works in dash/bash/sh).
+_real_curl=$(command -v curl)
+curl() {
+  if [ -n "$AMUX_TOKEN" ]; then
+    "$_real_curl" -H "Authorization: Bearer $AMUX_TOKEN" "$@"
+  else
+    "$_real_curl" "$@"
+  fi
+}
 cmd="$1"; shift 2>/dev/null || true
 
 case "$cmd" in
@@ -10631,21 +10647,50 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   .empty code { color: var(--accent); }
 
-  /* Sync activity banner */
+  /* Sync activity banner — Apple-grade toast (bottom-right, capsule, material) */
   .sync-banner {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 450;
-    background: var(--card); border-top: 1px solid var(--accent);
-    padding: 10px 16px; font-size: 0.8rem;
-    transform: translateY(100%); transition: transform 0.2s;
+    position: fixed;
+    bottom: calc(var(--s-4) + env(safe-area-inset-bottom));
+    right: var(--s-4);
+    left: auto;
+    z-index: var(--z-toast);
+    background: var(--mat-thick);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-lg);
+    padding: var(--s-3) var(--s-4);
+    font: var(--weight-medium) var(--text-caption1) var(--font-sans);
+    color: var(--label-secondary);
+    max-width: min(360px, calc(100vw - var(--s-8)));
     max-height: 40vh; overflow-y: auto;
+    box-shadow: var(--shadow-md);
+    transform: translateY(calc(100% + var(--s-4))); opacity: 0;
+    transition: transform var(--duration-medium) var(--ease-emphasized),
+                opacity var(--duration-fast) var(--ease-standard);
+    pointer-events: none;
   }
-  .sync-banner.active { transform: translateY(0); }
-  .sync-banner .sync-title { font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
-  .sync-banner .sync-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.75rem; }
-  .sync-banner .sync-item.pending { color: var(--dim); }
-  .sync-banner .sync-item.running { color: var(--accent); }
-  .sync-banner .sync-item.done { color: #4ade80; }
-  .sync-banner .sync-item.failed { color: #f87171; }
+  .sync-banner.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .sync-banner .sync-title {
+    font: var(--weight-semibold) var(--text-footnote) var(--font-sans);
+    color: var(--label-primary);
+    margin-bottom: var(--s-2);
+    display: flex; justify-content: space-between; align-items: center; gap: var(--s-3);
+  }
+  .sync-banner .sync-title .btn {
+    min-height: 0; padding: 2px var(--s-2);
+    border-radius: var(--r-xs);
+    background: var(--bg-tinted); border: none; color: var(--label-secondary);
+    font: var(--weight-medium) var(--text-caption2) var(--font-sans);
+  }
+  .sync-banner .sync-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font: var(--text-caption1) var(--font-sans); }
+  .sync-banner .sync-item.pending { color: var(--label-tertiary); }
+  .sync-banner .sync-item.running { color: var(--tint-blue); }
+  .sync-banner .sync-item.done    { color: var(--tint-green); }
+  .sync-banner .sync-item.failed  { color: var(--tint-red); }
+  @media (max-width: 600px) {
+    .sync-banner { left: var(--s-3); right: var(--s-3); max-width: none; }
+  }
 
   /* Sending indicator */
   .sending-indicator {
