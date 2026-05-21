@@ -36865,16 +36865,26 @@ class CCHandler(BaseHTTPRequestHandler):
             data = msg.get("data", "")
             if not isinstance(data, str) or not data:
                 return
-            # Chunk large pastes so one send-keys call stays reasonable.
-            for i in range(0, len(data), 4096):
-                chunk = data[i : i + 4096]
-                try:
-                    subprocess.run(
-                        ["tmux", "send-keys", "-t", target, "-l", chunk],
-                        capture_output=True, timeout=5,
-                    )
-                except Exception:
-                    return
+            # Cap paste size — protects the WS thread from a malicious
+            # multi-MB blast that would spawn hundreds of subprocesses.
+            if len(data) > 1_000_000:
+                return
+            # One subprocess pair via load-buffer + paste-buffer instead of
+            # N chunked send-keys calls. send-keys -l spawns 1 subprocess per
+            # 4 KB which adds up fast on large pastes; load-buffer takes the
+            # whole payload on stdin and paste-buffer atomically inserts it.
+            try:
+                subprocess.run(
+                    ["tmux", "load-buffer", "-b", "amux-paste", "-t", target, "-"],
+                    input=data.encode("utf-8", errors="replace"),
+                    capture_output=True, timeout=10, check=True,
+                )
+                subprocess.run(
+                    ["tmux", "paste-buffer", "-d", "-b", "amux-paste", "-t", target],
+                    capture_output=True, timeout=5,
+                )
+            except Exception:
+                return
         elif mtype == "key":
             data = msg.get("data", "")
             if not isinstance(data, str) or not data:
