@@ -8556,26 +8556,29 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
 
   .card-hover-hint {
-    position: absolute; bottom: 10px; right: 14px;
-    font-size: 0.68rem; color: var(--dim, #8b949e);
-    background: rgba(1,4,9,0.6); padding: 3px 8px; border-radius: 999px;
-    border: 1px solid rgba(139,148,158,0.25);
+    position: absolute; bottom: var(--s-3); right: var(--s-3);
+    font: var(--weight-medium) var(--text-caption2)/1 var(--font-sans);
+    color: var(--label-tertiary);
+    background: var(--mat-thin); padding: 3px var(--s-2); border-radius: var(--r-full);
+    border: 1px solid var(--sep-non-opaque);
+    backdrop-filter: blur(8px) saturate(180%);
+    -webkit-backdrop-filter: blur(8px) saturate(180%);
     pointer-events: none; opacity: 0; transform: translateY(4px);
     transition: opacity 150ms ease, transform 150ms ease;
-    z-index: 3; font-family: var(--font-sans, -apple-system, system-ui);
+    z-index: 3;
     letter-spacing: 0.01em; max-width: calc(100% - 28px); white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }
-  body.light .card-hover-hint { background: rgba(255,255,255,0.9); color: #57606a; border-color: rgba(31,35,40,0.15); }
   .card.hover-ready .card-hover-hint { opacity: 1; transform: translateY(0); }
   .card.hover-typing .card-hover-hint {
     opacity: 1; transform: translateY(0);
-    background: rgba(10,132,255,0.18); color: #58a6ff;
-    border-color: rgba(10,132,255,0.5);
+    background: color-mix(in srgb, var(--tint-blue) 18%, transparent);
+    color: var(--tint-blue);
+    border-color: color-mix(in srgb, var(--tint-blue) 35%, transparent);
   }
   .card-hover-hint .hover-buffer {
-    color: #fff; font-family: ui-monospace, "SF Mono", monospace;
-    background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px;
+    color: var(--label-primary); font-family: var(--font-mono);
+    background: var(--bg-tinted); padding: 1px 5px; border-radius: var(--r-xs);
     margin-left: 4px; max-width: 18ch; overflow: hidden; text-overflow: ellipsis;
     display: inline-block; vertical-align: middle;
   }
@@ -8583,7 +8586,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .card-hover-hint .hover-buffer:empty { display: none; }
   /* When typing, the "type to send" label collapses so the buffer + arrow lead */
   .card.hover-typing .card-hover-hint .hover-label { display: none; }
-  body.light .card-hover-hint .hover-buffer { color: var(--text, #1f2328); background: rgba(31,35,40,0.06); }
 
   .card.attention-waiting {
     border-color: rgba(10,132,255,0.45);
@@ -8618,13 +8620,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .badges { display: flex; gap: 6px; margin-top: 6px; margin-left: 20px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .badges::-webkit-scrollbar { display: none; }
   .badge {
-    font-size: 0.7rem; padding: 2px 7px; border-radius: 4px;
-    font-weight: 600; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    font: var(--weight-medium) var(--text-caption2)/1.4 var(--font-sans);
+    padding: 2px var(--s-2); border-radius: var(--r-xs);
+    letter-spacing: 0; white-space: nowrap; flex-shrink: 0;
   }
-  .badge.yolo { background: rgba(210,153,34,0.2); color: var(--yellow); }
-  .badge.auto-continue { background: rgba(98,160,234,0.2); color: #62a0ea; }
-  .badge.model { background: rgba(57,210,192,0.2); color: var(--cyan); }
-  .badge.codex { background: rgba(16,185,129,0.2); color: #10b981; }
+  .badge.yolo { background: color-mix(in srgb, var(--tint-orange) 16%, transparent); color: var(--tint-orange); }
+  .badge.auto-continue { background: color-mix(in srgb, var(--tint-blue) 14%, transparent); color: var(--tint-blue); }
+  .badge.model { background: var(--bg-tinted); color: var(--label-secondary); }
+  .badge.codex { background: color-mix(in srgb, var(--tint-green) 14%, transparent); color: var(--tint-green); }
 
   /* Expanded panel */
   .panel { display: none; margin-top: 12px; }
