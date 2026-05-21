@@ -7977,6 +7977,19 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <!-- Apple-grade redesign: Motion One for spring physics + Lucide for icons -->
 <script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.min.js"></script>
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+  // Motion One UMD exposes window.Motion (capital M); alias to lowercase for convenience
+  if (typeof window.motion === 'undefined' && typeof window.Motion !== 'undefined') {
+    window.motion = window.Motion;
+  }
+  // Apple-grade spring presets — JS object (CSS vars can't hold parseable JSON cleanly)
+  window.AmuxSprings = {
+    snappy:  { type: 'spring', stiffness: 700, damping: 35 },
+    bouncy:  { type: 'spring', stiffness: 400, damping: 22 },
+    smooth:  { type: 'spring', stiffness: 220, damping: 28 },
+    gentle:  { type: 'spring', stiffness: 120, damping: 20 }
+  };
+</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -8046,9 +8059,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --tint-indigo: #5e5ce6;
     /* ── Separators ── */
     --sep-opaque:     rgba(56,56,58,1);
-    --sep-non-opaque: rgba(84,84,88,0.34);
+    --sep-non-opaque: rgba(84,84,88,0.6);
+    /* Focus ring (Apple-grade keyboard a11y) */
+    --focus-ring: 0 0 0 4px color-mix(in srgb, var(--tint-blue) 30%, transparent);
     /* ── Motion ── */
-    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1);  /* Apple UIView default — NOT Material 3 */
     --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
     --duration-instant: 100ms;
     --duration-fast:    200ms;
@@ -8108,11 +8123,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
     background: var(--bg-tinted); color: var(--label-primary);
     border: none; cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
     transition: background var(--duration-fast) var(--ease-standard),
                 transform var(--duration-instant) var(--ease-standard);
   }
   .btn-ios:hover { background: var(--bg-layer-3); }
   .btn-ios:active { transform: scale(0.96); }
+  .btn-ios:focus-visible { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint-blue) 30%, transparent); }
   .btn-ios-primary { background: var(--tint-blue); color: white; }
   .btn-ios-primary:hover { background: color-mix(in srgb, var(--tint-blue) 88%, white); }
   .btn-ios-destructive { color: var(--tint-red); }
@@ -8130,7 +8147,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   .input-ios:focus, .textarea-ios:focus {
     outline: none; border-color: var(--tint-blue); background: var(--bg-layer-2);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint-blue) 20%, transparent);
   }
+  /* Lucide global stroke override — Apple SF Symbols are 1.5px not 2px */
+  .lucide, [data-lucide] { stroke-width: 1.5px; }
   .chip-ios {
     padding: 2px var(--s-2);
     border-radius: var(--r-xs);
