@@ -10039,6 +10039,75 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .focus-conn-dot { animation: none !important; }
   }
 
+  /* ── Reconnect banner (LiveTerminal WebSocket health) ──
+     Slides down from the top of #peek-overlay when the WS isn't healthy.
+     Honors safe-area-inset-top so it doesn't tuck under the iOS notch on
+     standalone PWA. Promotes the small conn-dot into a full-width label so
+     users instantly see what's wrong on mobile. */
+  .peek-banner {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 20;  /* above focus-header (z:5/6) so it overlays the header */
+    display: none;
+    align-items: center; gap: var(--s-2);
+    padding: 6px var(--s-3);
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-left: max(var(--s-3), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--s-3), env(safe-area-inset-right, 0px));
+    font: var(--weight-medium) var(--text-caption1) var(--font-sans);
+    color: #fff;
+    background: var(--label-tertiary);
+    text-align: left;
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+    transform: translateY(-100%);
+    transition: transform var(--duration-medium) var(--ease-emphasized),
+                background var(--duration-fast) var(--ease-standard);
+    pointer-events: none;
+  }
+  /* Visible whenever a non-hidden state is set */
+  .peek-banner[data-state="connecting"],
+  .peek-banner[data-state="reconnecting"],
+  .peek-banner[data-state="offline"],
+  .peek-banner[data-state="reconnected"] {
+    display: flex;
+    transform: translateY(0);
+  }
+  .peek-banner[data-state="offline"] {
+    pointer-events: auto;  /* tap to retry */
+    cursor: pointer;
+  }
+  .peek-banner[data-state="connecting"]   { background: var(--tint-blue, #0a84ff); }
+  .peek-banner[data-state="reconnecting"] { background: var(--tint-yellow, #ffd60a); color: #1a1a1a; }
+  .peek-banner[data-state="offline"]      { background: var(--tint-red, #ff453a); }
+  .peek-banner[data-state="reconnected"]  { background: var(--tint-green, #30d158); }
+  .peek-banner-spinner {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    border-right-color: transparent;
+    animation: peek-banner-spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  /* Hide the spinner in offline + reconnected states (no in-flight work) */
+  .peek-banner[data-state="offline"] .peek-banner-spinner,
+  .peek-banner[data-state="reconnected"] .peek-banner-spinner {
+    display: none;
+  }
+  @keyframes peek-banner-spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .peek-banner { transition: none; }
+    .peek-banner-spinner { animation: none; }
+  }
+  /* Push the focus-header down by the banner's height while a banner is
+     showing — uses a CSS var set by JS so we don't have to measure on every
+     repaint. */
+  #peek-overlay.has-peek-banner .focus-header {
+    margin-top: var(--peek-banner-h, 28px);
+  }
+
   /* ── LiveTerminal xterm host (replaces #peek-body innerHTML rendering) ── */
   /* Terminal surface stays dark in light mode too — Apple's Terminal.app
      defaults to dark in light system mode. ANSI colors are tuned for dark
@@ -16309,6 +16378,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     </button>
   </header>
 
+  <!-- Reconnect banner — slides down from the top of the overlay when the
+       LiveTerminal WebSocket isn't healthy. States: live (hidden) /
+       connecting / reconnecting / offline / reconnected (green flash).
+       The banner itself is tappable in 'offline' mode to force a manual
+       retry. Driven by LiveTerminal._setStatus. -->
+  <div class="peek-banner" id="peek-conn-banner" data-state="hidden" role="status" aria-live="polite" onclick="_peekBannerClick()">
+    <span class="peek-banner-spinner" aria-hidden="true"></span>
+    <span class="peek-banner-text" id="peek-conn-banner-text">Connecting…</span>
+  </div>
+
   <!-- Slide-down search bar (Cmd+F / iOS Mail pattern) — hidden by default -->
   <div class="focus-search-bar" id="peek-search-wrap" role="search">
     <div class="peek-find-wrap focus-find-wrap">
@@ -21278,11 +21357,16 @@ function closePeek() {
   const splitBtn = document.getElementById('peek-split-toggle');
   if (splitBtn) splitBtn.classList.remove('active');
   const ov = document.getElementById('peek-overlay');
-  ov.classList.remove('active', 'vv-compact', 'peek-focus');
+  ov.classList.remove('active', 'vv-compact', 'peek-focus', 'has-peek-banner');
   ov.style.height = '';
   ov.style.top = '';
   ov.style.bottom = '';
   ov.style.paddingBottom = '';
+  // Reset reconnect banner so the next open starts from a clean slate.
+  try {
+    const b = document.getElementById('peek-conn-banner');
+    if (b) b.dataset.state = 'hidden';
+  } catch (e) {}
   if (peekTimer) { clearInterval(peekTimer); peekTimer = null; }
   sessionStorage.removeItem('peekState');
 }
@@ -36515,6 +36599,70 @@ async function _jrnlSaveConfig() {
     return { type: 'input', data: data };
   }
 
+  // ── Reconnect banner driver (LiveTerminal-agnostic) ──────────────────
+  // _setStatus calls window._peekBannerSet(state, prev). State machine:
+  //   live         → hidden (or 800ms green "Live" flash if recovering)
+  //   connecting   → blue,   "Connecting…",   spinner
+  //   reconnecting → yellow, "Reconnecting…", spinner
+  //   offline      → red,    "Connection lost — tap to retry"
+  // Banner respects safe-area-inset-top (CSS). Tapping in 'offline' state
+  // forces an immediate reconnect attempt (skips backoff).
+  const _BANNER_FLASH_MS = 800;
+  let _peekBannerFlashTimer = null;
+  function _peekBannerSet(state, prev) {
+    const banner = document.getElementById('peek-conn-banner');
+    if (!banner) return;
+    const txt = document.getElementById('peek-conn-banner-text');
+    const ov = document.getElementById('peek-overlay');
+    clearTimeout(_peekBannerFlashTimer);
+    function hide() {
+      banner.dataset.state = 'hidden';
+      if (ov) ov.classList.remove('has-peek-banner');
+    }
+    function show(s, label) {
+      banner.dataset.state = s;
+      if (txt) txt.textContent = label;
+      if (ov) ov.classList.add('has-peek-banner');
+    }
+    switch (state) {
+      case 'connecting':
+        show('connecting', 'Connecting…');
+        break;
+      case 'reconnecting':
+        show('reconnecting', 'Reconnecting…');
+        break;
+      case 'offline':
+        show('offline', 'Connection lost — tap to retry');
+        break;
+      case 'live':
+        // If we just recovered from a problem state, flash a green "Live"
+        // confirmation. On a clean first connect (prev === 'connecting' that
+        // healed in <2s) we skip the flash to stay quiet.
+        if (prev === 'reconnecting' || prev === 'offline') {
+          show('reconnected', 'Live');
+          _peekBannerFlashTimer = setTimeout(hide, _BANNER_FLASH_MS);
+        } else {
+          hide();
+        }
+        break;
+      default:
+        hide();
+    }
+  }
+  window._peekBannerSet = _peekBannerSet;
+  // Manual retry handler — used by the banner's onclick when in 'offline'
+  // state. Resets the LiveTerminal backoff so the reconnect fires now.
+  window._peekBannerClick = function _peekBannerClick() {
+    const lt = window._liveTerm;
+    if (!lt) return;
+    if (lt.state !== 'offline') return;
+    try {
+      clearTimeout(lt._reconnectTimer);
+      lt._backoff = 300;
+      lt._connect();
+    } catch (e) { /* ignore */ }
+  };
+
   class LiveTerminal {
     constructor(container, sessionName) {
       this.name = sessionName;
@@ -36609,6 +36757,7 @@ async function _jrnlSaveConfig() {
     }
 
     _setStatus(state) {
+      const prev = this.state;
       this.state = state;
       const dot = document.getElementById('peek-conn-dot');
       if (dot) {
@@ -36621,6 +36770,11 @@ async function _jrnlSaveConfig() {
         };
         dot.title = 'Live connection: ' + (labels[state] || state);
       }
+      // Drive the full-width reconnect banner. Live = hidden. When
+      // transitioning from reconnecting → live, flash a green "Live" badge
+      // for 800ms so the user sees the recovery. The banner is purely
+      // mobile-relevant but harmless on desktop (sits at top of overlay).
+      try { _peekBannerSet(state, prev); } catch (e) { /* banner module missing */ }
     }
 
     _wireInput() {
