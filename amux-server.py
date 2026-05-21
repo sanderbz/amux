@@ -37325,6 +37325,54 @@ async function _jrnlSaveConfig() {
 
   function _onTouchEnd() { _resetState(); }
 
+  // ── B. Two-finger vertical drag → PageUp / PageDown ────────────────────
+  // Tracks the midpoint Y of two simultaneous touches. Every 80px of vertical
+  // travel = one page-key, capped at 3 per gesture so a flick doesn't blow
+  // through hundreds of lines of scrollback. Direction mapping matches the
+  // physical metaphor: swipe DOWN with two fingers = scroll the buffer
+  // backwards in time = PageUp; swipe UP = forwards = PageDown.
+  const PAGE_PX = 80;
+  const PAGE_CAP = 3;
+  let twoTouch = null;  // { y0: <number>, sent: <count> } during gesture
+
+  function _sendKey(name) {
+    const lt = window._liveTerm;
+    if (lt && typeof lt.sendKey === 'function' && lt.sendKey(name)) return;
+    if (typeof peekQuickKeys === 'function' && window.peekSession) {
+      try { peekQuickKeys(name); } catch (e) {}
+    }
+  }
+
+  function _onTouchStartMulti(e) {
+    if (window._gestureMode) return;
+    if (e.touches.length === 2) {
+      // Two fingers down — take over from the joystick handler. The joystick
+      // handler will see touches.length > 1 on its next move and reset itself.
+      _resetState();
+      const a = e.touches[0], b = e.touches[1];
+      twoTouch = { y0: (a.clientY + b.clientY) / 2, sent: 0 };
+    } else if (e.touches.length > 2) {
+      // 3+ fingers — abort, let the browser do its thing.
+      twoTouch = null;
+    }
+  }
+  function _onTouchMoveMulti(e) {
+    if (!twoTouch || e.touches.length !== 2) return;
+    if (e.cancelable) e.preventDefault();
+    const a = e.touches[0], b = e.touches[1];
+    const cy = (a.clientY + b.clientY) / 2;
+    const dy = cy - twoTouch.y0;
+    const pages = Math.min(PAGE_CAP, Math.floor(Math.abs(dy) / PAGE_PX));
+    while (twoTouch.sent < pages) {
+      twoTouch.sent++;
+      _sendKey(dy > 0 ? 'PageUp' : 'PageDown');
+    }
+  }
+  function _onTouchEndMulti(e) {
+    // Gesture ends when we drop below 2 touches.
+    if (!e.touches || e.touches.length < 2) twoTouch = null;
+  }
+
   // Wire on every LiveTerminal mount. The host element (#peek-body) gets
   // recreated on session switch, so dataset.joystickWired prevents double-bind
   // on the same DOM node while still allowing re-wire on fresh nodes.
@@ -37333,10 +37381,16 @@ async function _jrnlSaveConfig() {
               || document.getElementById('peek-body');
     if (!host || host.dataset.joystickWired === '1') return;
     host.dataset.joystickWired = '1';
-    host.addEventListener('touchstart',  _onTouchStart, { passive: true });
-    host.addEventListener('touchmove',   _onTouchMove,  { passive: false });
-    host.addEventListener('touchend',    _onTouchEnd,   { passive: true });
-    host.addEventListener('touchcancel', _onTouchEnd,   { passive: true });
+    host.addEventListener('touchstart',  _onTouchStart,      { passive: true });
+    host.addEventListener('touchmove',   _onTouchMove,       { passive: false });
+    host.addEventListener('touchend',    _onTouchEnd,        { passive: true });
+    host.addEventListener('touchcancel', _onTouchEnd,        { passive: true });
+    // Two-finger handlers — separate functions so each can early-return on
+    // touches.length without interfering with the single-touch joystick.
+    host.addEventListener('touchstart',  _onTouchStartMulti, { passive: true });
+    host.addEventListener('touchmove',   _onTouchMoveMulti,  { passive: false });
+    host.addEventListener('touchend',    _onTouchEndMulti,   { passive: true });
+    host.addEventListener('touchcancel', _onTouchEndMulti,   { passive: true });
   });
 })();
 </script>
