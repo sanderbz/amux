@@ -8701,7 +8701,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .chip-picker-header input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 0.85rem; outline: none; }
   .chip-picker-header input:focus { border-color: var(--accent); }
   .chip-picker-body { overflow-y: auto; padding: 8px 0; max-height: 50vh; }
-  .chip-picker-section { padding: 4px 16px 2px; font-size: 0.7rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .chip-picker-section { padding: var(--s-2) var(--s-4) 2px; font: var(--weight-semibold) var(--text-caption2)/1.4 var(--font-sans); color: var(--label-tertiary); letter-spacing: 0; }
   .chip-picker-item { padding: 8px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text); }
   .chip-picker-item:hover { background: rgba(88,166,255,0.1); }
   .chip-picker-item .cpd { color: var(--dim); font-size: 0.75rem; flex: 1; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
