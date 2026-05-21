@@ -18195,7 +18195,7 @@ function render() {
             autocapitalize="sentences" spellcheck="true" enterkeyhint="enter"
             oninput="autoGrow(this);cardSlashAcUpdate('${s.name}');cmdHistoryReset()"
             onkeydown="cardSlashAcKeydown('${s.name}',event)"></textarea>
-          <button class="btn primary" onclick="sendFromInput('${s.name}')">Send</button>
+          <button class="btn-ios btn-ios-primary" onclick="sendFromInput('${s.name}')">Send</button>
         </div>` : ''}
       </div>
       ${s.running ? `<div class="card-hover-hint" aria-hidden="true"><span class="hover-label">type to send</span><span class="hover-buffer"></span><span class="hover-arrow"> &rarr;</span></div>` : ''}
