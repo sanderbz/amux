@@ -18156,8 +18156,8 @@ function render() {
     else if (s.rate_limited_until && s.rate_limited_until * 1000 > Date.now()) _miniAttn = 'attention-error';
     const _miniLines = (s.preview_lines || []).slice(-12).map(l => esc(l)).join('\n');
     return `
-    <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" role="button" tabindex="0" aria-label="Session ${esc(s.name)}${_miniStatus ? ', ' + _miniStatus : ''}${s.last_activity ? ', ' + timeAgo(s.last_activity) : ''}${s.dir ? ', ' + esc(s.dir) : ''}" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();toggle('${s.name}');}" onclick="event.stopPropagation();toggle('${s.name}')">
-      <div class="card-header" onclick="headerTap('${s.name}', event)" onmousedown="tileMouseDown(event,'${s.name}')">
+    <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" role="button" tabindex="0" aria-label="Session ${esc(s.name)}${_miniStatus ? ', ' + _miniStatus : ''}${s.last_activity ? ', ' + timeAgo(s.last_activity) : ''}${s.dir ? ', ' + esc(s.dir) : ''}" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();openPeek('${s.name}');}" onclick="cardClick('${s.name}', event)">
+      <div class="card-header" onmousedown="tileMouseDown(event,'${s.name}')">
         <div class="card-header-top">
           <div class="card-drag-handle" title="Drag to reorder"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg></div>
           <span class="card-status-dot" data-status="${_miniStatus}" aria-label="${_miniStatus}"></span>
@@ -18522,6 +18522,22 @@ function toggle(name) {
   if (expanded.has(name)) {
     fetchStats(name);
   }
+}
+
+// Primary card click handler: open focus mode unless the click landed on a
+// nested interactive (menu, drag handle, send-input, mini-term — all of which
+// have their own onclick handlers that fire before this one bubbles up).
+// We also bail if a drag just happened so dragging to reorder doesn't open focus.
+function cardClick(name, e) {
+  if (_tileJustDragged) { _tileJustDragged = false; return; }
+  // If the user clicked something interactive that didn't stopPropagation
+  // (rare), don't hijack the click.
+  const t = e.target;
+  if (t && t.closest && t.closest('.card-menu, .card-menu-btn, .card-drag-handle, .send-input, .card-mini-term, input, textarea, button, a, [contenteditable="true"]')) {
+    return;
+  }
+  closeAllMenus();
+  openPeek(name);
 }
 
 function collapseAll() {
