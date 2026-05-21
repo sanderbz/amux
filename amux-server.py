@@ -8658,21 +8658,33 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .chips { display: flex; gap: 6px; flex-wrap: nowrap; margin-bottom: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; touch-action: pan-x; overscroll-behavior-x: contain; }
   .chips::-webkit-scrollbar { display: none; }
   .chip {
-    font-size: 0.78rem; padding: 6px 12px; border-radius: 16px;
-    background: rgba(88,166,255,0.12); color: var(--accent);
-    border: 1px solid rgba(88,166,255,0.25); cursor: pointer;
+    font: var(--weight-medium) var(--text-footnote)/1 var(--font-sans);
+    padding: 6px 12px; border-radius: var(--r-full);
+    background: var(--bg-tinted); color: var(--label-primary);
+    border: 1px solid var(--sep-non-opaque); cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    min-height: 34px; display: flex; align-items: center;
+    min-height: 32px; display: inline-flex; align-items: center;
     white-space: nowrap; flex-shrink: 0;
+    transition: background var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard);
   }
-  .chip:active { background: rgba(88,166,255,0.25); }
-  .chip.danger { background: rgba(248,81,73,0.12); color: var(--red); border-color: rgba(248,81,73,0.25); }
-  .chip.danger:active { background: rgba(248,81,73,0.25); }
-  .chip.chip-add { background: rgba(139,148,158,0.10); color: var(--dim); border-color: rgba(139,148,158,0.25); font-size: 1rem; padding: 6px 10px; }
-  .chip.chip-add:hover { background: rgba(139,148,158,0.2); color: var(--text); }
-  .chip.chip-edit-toggle { background: none; border: 1px solid transparent; color: var(--dim); padding: 6px 8px; font-size: 0.85rem; }
-  .chip.chip-edit-toggle:hover { color: var(--accent); }
-  .chip.chip-edit-toggle.active { color: var(--accent); }
+  .chip:hover  { background: var(--bg-layer-3); }
+  .chip:active { transform: scale(0.97); }
+  .chip.primary {
+    background: color-mix(in srgb, var(--tint-blue) 18%, transparent);
+    color: var(--tint-blue);
+    border-color: transparent;
+  }
+  .chip.danger {
+    background: color-mix(in srgb, var(--tint-red) 16%, transparent);
+    color: var(--tint-red);
+    border-color: transparent;
+  }
+  .chip.chip-add { background: var(--bg-tinted); color: var(--label-tertiary); border-color: var(--sep-non-opaque); font-size: 1rem; padding: 6px 10px; }
+  .chip.chip-add:hover { background: var(--bg-layer-3); color: var(--label-primary); }
+  .chip.chip-edit-toggle { background: none; border: 1px solid transparent; color: var(--label-tertiary); padding: 6px 8px; font-size: 0.85rem; }
+  .chip.chip-edit-toggle:hover { color: var(--tint-blue); }
+  .chip.chip-edit-toggle.active { color: var(--tint-blue); }
   .chips.editing { flex-wrap: wrap; overflow-x: visible; touch-action: none; gap: 8px; }
   .chips.editing .chip { cursor: grab; padding: 8px 12px; min-height: 40px; }
   .chips.editing .chip.dragging { opacity: 0.3; }
@@ -22703,7 +22715,9 @@ function renderChips(container, sessionName, isPeek) {
   const chips = _getChips();
   let html = '';
   chips.forEach((chip, i) => {
-    const cls = chip.danger ? 'chip danger' : 'chip';
+    const cls = chip.danger ? 'chip danger'
+              : (chip.primary || chip.id === 'enter' || chip.id === 'continue') ? 'chip primary'
+              : 'chip';
     const drag = _chipEditing ? 'draggable="true"' : '';
     html += '<div class="' + cls + '" ' + drag + ' data-chip-idx="' + i + '"'
       + ' onclick="_chipAction(_getChips()[' + i + '],\'' + esc(sessionName || '') + '\',' + !!isPeek + ')">'
