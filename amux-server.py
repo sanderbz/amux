@@ -10488,6 +10488,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
   /* Hide the legacy .overlay-body padding so our focus-terminal styles win */
   #peek-overlay.focus-shell #peek-body.overlay-body { background: var(--bg-base) !important; }
+  /* OVERRIDE the above for live-term: terminal stays dark in any theme.
+     Has to come after the previous rule and match all the same classes. */
+  #peek-overlay.focus-shell #peek-body.overlay-body.live-term-host {
+    background: #0a0a0c !important;
+  }
 
   /* ── View Transitions API: card → focus morph ── */
   /* VT names are unique per open (focus-card-1, focus-card-2, ...) to
