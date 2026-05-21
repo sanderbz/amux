@@ -36091,9 +36091,10 @@ def _ws_recv_exact(reader, n: int) -> bytes:
     return bytes(buf)
 
 
-def _ws_read_frame(sock) -> tuple[bool, int, bytes]:
-    """Parse one inbound frame. Returns (fin, opcode, payload)."""
-    hdr = _ws_recv_exact(sock, 2)
+def _ws_read_frame(reader) -> tuple[bool, int, bytes]:
+    """Parse one inbound frame. Returns (fin, opcode, payload).
+    `reader` must support .read(n) — e.g. self.rfile."""
+    hdr = _ws_recv_exact(reader, 2)
     b0, b1 = hdr[0], hdr[1]
     fin = bool(b0 & 0x80)
     # RFC 6455 §5.2: RSV bits must be 0 unless an extension negotiated them.
@@ -36103,25 +36104,25 @@ def _ws_read_frame(sock) -> tuple[bool, int, bytes]:
     masked = bool(b1 & 0x80)
     length = b1 & 0x7F
     if length == 126:
-        length = struct.unpack("!H", _ws_recv_exact(sock, 2))[0]
+        length = struct.unpack("!H", _ws_recv_exact(reader, 2))[0]
     elif length == 127:
-        length = struct.unpack("!Q", _ws_recv_exact(sock, 8))[0]
+        length = struct.unpack("!Q", _ws_recv_exact(reader, 8))[0]
     if length > _WS_MAX_PAYLOAD:
         raise ConnectionError(f"ws: frame too large ({length} > {_WS_MAX_PAYLOAD})")
     # RFC 6455 §5.1: client→server frames MUST be masked.
     if not masked:
         raise ConnectionError("ws: client frame not masked")
-    mask = _ws_recv_exact(sock, 4)
-    payload = bytearray(_ws_recv_exact(sock, length)) if length else bytearray()
+    mask = _ws_recv_exact(reader, 4)
+    payload = bytearray(_ws_recv_exact(reader, length)) if length else bytearray()
     for i in range(length):
         payload[i] ^= mask[i & 3]
     return fin, opcode, bytes(payload)
 
 
-def _ws_read_message(sock) -> tuple[int, bytes]:
+def _ws_read_message(reader) -> tuple[int, bytes]:
     """Read one logical message (assembling continuations). Returns (opcode, payload).
     Control frames are returned as-is without reassembly."""
-    fin, opcode, payload = _ws_read_frame(sock)
+    fin, opcode, payload = _ws_read_frame(reader)
     # Control frames must not be fragmented (RFC 6455 §5.5).
     if opcode & 0x8:
         if not fin:
@@ -36132,7 +36133,7 @@ def _ws_read_message(sock) -> tuple[int, bytes]:
     first_op = opcode
     chunks = [payload]
     while True:
-        fin2, op2, pl2 = _ws_read_frame(sock)
+        fin2, op2, pl2 = _ws_read_frame(reader)
         if op2 & 0x8:
             # Control frame interleaved during fragmentation — ignore (per pragma).
             if fin2:
