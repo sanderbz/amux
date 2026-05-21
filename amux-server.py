@@ -18239,14 +18239,14 @@ function render() {
     // Strip bash launch boilerplate so idle previews don't show the script
     // that started the session (unset/source/cd/HISTFILE/.envrc + the
     // `claude --name foo` line itself + the bash prompt host string like
-    // `brandspot-puppy on  main`). Users care about agent output, not the
-    // shell pipeline that invoked it.
-    const _stripBoilerplateRE = /(^(unset |source |cd |export |HISTFILE|\.envrc)|claude --name |claude\.|^[a-z0-9_.-]+ on  (main|master|develop|trunk))/i;
+    // `brandspot-puppy on  main`). Also catches mid-line continuations of
+    // the wrapper script (ANTHROPIC_API_KEY / CLAUDECODE / .profile leak).
+    // Users care about agent output, not the shell pipeline that invoked it.
+    const _stripBoilerplateRE = /(^(unset |source |cd |export |HISTFILE|\.envrc)|claude --name |ANTHROPIC_API_KEY|CLAUDECODE|\/root\/\.profile|^[a-z0-9_.-]+ on  (main|master|develop|trunk))/i;
     const _filteredLines = (s.preview_lines || []).filter(l => !_stripBoilerplateRE.test(l));
-    // Only show the filtered version once there's enough real content;
-    // otherwise fall back to the original (early session = boilerplate is
-    // all we have).
-    const _useFiltered = _filteredLines.length >= 2;
+    // If filtering left at least one real line, use it; otherwise fall back
+    // (very-early session where boilerplate is all we have).
+    const _useFiltered = _filteredLines.length >= 1;
     const _miniLines = (_useFiltered ? _filteredLines : (s.preview_lines || [])).slice(-12).map(l => esc(l)).join('\n');
     return `
     <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" role="button" tabindex="0" aria-label="Session ${esc(s.name)}${_miniStatus ? ', ' + _miniStatus : ''}${s.last_activity ? ', ' + timeAgo(s.last_activity) : ''}${s.dir ? ', ' + esc(s.dir) : ''}" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();openPeek('${s.name}');}" onclick="cardClick('${s.name}', event)">
