@@ -10476,13 +10476,28 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   #peek-overlay.focus-shell #peek-body.overlay-body { background: var(--bg-base) !important; }
 
   /* ── View Transitions API: card → focus morph ── */
+  /* VT names are unique per open (focus-card-1, focus-card-2, ...) to
+     avoid duplicate-name aborts. CSS keeps the same timing for every
+     instance — the wildcard selector binds to all of them at once via
+     attribute substring match in :is() / individual rules. The
+     browser-default ease + duration also looks fine, so the explicit
+     duration is a refinement, not a requirement. */
   @supports (view-transition-name: foo) {
     ::view-transition-old(focus-card),
-    ::view-transition-new(focus-card) {
+    ::view-transition-new(focus-card),
+    ::view-transition-old(focus-card-1),
+    ::view-transition-new(focus-card-1),
+    ::view-transition-old(focus-card-2),
+    ::view-transition-new(focus-card-2),
+    ::view-transition-old(focus-card-3),
+    ::view-transition-new(focus-card-3) {
       animation-duration: 320ms;
       animation-timing-function: var(--ease-emphasized);
     }
-    ::view-transition-group(focus-card) {
+    ::view-transition-group(focus-card),
+    ::view-transition-group(focus-card-1),
+    ::view-transition-group(focus-card-2),
+    ::view-transition-group(focus-card-3) {
       animation-duration: 320ms;
       animation-timing-function: var(--ease-emphasized);
     }
@@ -21424,33 +21439,47 @@ function _syncPeekOverlayToVisualViewport() {
   const _origClosePeek = window.closePeek;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function _focusRunVT(fn, cardName) {
-    // Clear any stale view-transition-name from a previous open/close whose
-    // vt.finished.finally hadn't fired yet. Without this, rapid Cmd+K → pick
-    // session A → Esc → Cmd+K → pick session B triggers
-    //   "Unexpected duplicate view-transition-name: focus-card"
-    // and the new transition is aborted with "invalid state".
+  // Monotonic counter so every open/close cycle gets its own VT name. With
+  // a unique name per attempt, the browser never sees a duplicate even if
+  // the previous transition's cleanup hasn't fired yet.
+  window._vtCounter = window._vtCounter || 0;
+
+  function _clearAllVtTags() {
     try {
       document.querySelectorAll('[style*="view-transition-name"]').forEach(el => {
         el.style.viewTransitionName = '';
       });
     } catch (e) {}
+  }
 
-    // Tag the source card with a view-transition-name so it morphs into the shell
+  function _focusRunVT(fn, cardName) {
+    // 1. Hard-clear EVERY stale view-transition-name before tagging anything
+    //    new. Rapid open/close can leave the old tag set on a card that's
+    //    being re-rendered. Without this, two elements share the same name
+    //    inside startViewTransition() and the browser aborts with
+    //    "Unexpected duplicate view-transition-name".
+    _clearAllVtTags();
+
+    // 2. Tag with a UNIQUE name per attempt so even if cleanup is racing we
+    //    can never collide with the previous transition.
+    const vtName = 'focus-card-' + (++window._vtCounter);
+
     let card = null;
     if (cardName) {
       card = document.querySelector('.card[data-session="' + cssEscape(cardName) + '"]')
           || document.querySelector('[data-session="' + cssEscape(cardName) + '"]');
     }
     if (card) {
-      card.style.viewTransitionName = 'focus-card';
+      card.style.viewTransitionName = vtName;
     }
     const ov = document.getElementById('peek-overlay');
-    if (ov) ov.style.viewTransitionName = 'focus-card';
+    if (ov) ov.style.viewTransitionName = vtName;
 
     function _clearTags() {
       if (card) card.style.viewTransitionName = '';
       if (ov) ov.style.viewTransitionName = '';
+      // Defensive: also nuke any stragglers (e.g. re-rendered cards).
+      _clearAllVtTags();
     }
 
     if (!reducedMotion && typeof document.startViewTransition === 'function') {
