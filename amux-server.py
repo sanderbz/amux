@@ -9707,6 +9707,59 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .focus-status-dot[data-status="running"] { animation: none; }
   }
 
+  /* ── LiveTerminal connection dot (WS health indicator) ── */
+  .focus-conn-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--label-quaternary);
+    opacity: 0;
+    transition: background var(--duration-fast) var(--ease-standard),
+                opacity var(--duration-fast) var(--ease-standard);
+    margin-left: 2px;
+  }
+  body[data-focus-mode="true"] .focus-conn-dot { opacity: 1; }
+  .focus-conn-dot[data-state="live"] {
+    background: var(--tint-green);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 50%, transparent);
+    animation: conn-pulse 2.4s ease-out infinite;
+  }
+  .focus-conn-dot[data-state="reconnecting"] {
+    background: var(--tint-yellow);
+    animation: conn-blink 1s ease-in-out infinite;
+  }
+  .focus-conn-dot[data-state="offline"] { background: var(--tint-red); }
+  @keyframes conn-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint-green) 40%, transparent); }
+    50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint-green) 0%, transparent); }
+  }
+  @keyframes conn-blink {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .focus-conn-dot { animation: none !important; }
+  }
+
+  /* ── LiveTerminal xterm host (replaces #peek-body innerHTML rendering) ── */
+  #peek-body.live-term-host {
+    padding: var(--s-3) 0 var(--s-3) var(--s-3);
+    background: var(--bg-base);
+    overflow: hidden;
+  }
+  #peek-body.live-term-host .xterm,
+  #peek-body.live-term-host .xterm-viewport,
+  #peek-body.live-term-host .xterm-screen {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+  #peek-body.live-term-host .xterm-viewport {
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+  }
+  /* iOS-style soft caret (already xterm.theme.cursor, but keep CSS in sync) */
+  #peek-body.live-term-host .xterm-cursor-layer { mix-blend-mode: normal; }
+
   /* ── Slide-down search bar (hidden by default; .open class reveals) ── */
   .focus-search-bar {
     overflow: hidden;
@@ -15135,6 +15188,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="focus-title-wrap">
       <span class="focus-status-dot" id="peek-session-status" aria-hidden="true"></span>
       <h2 class="focus-title" id="peek-title">peek</h2>
+      <span class="focus-conn-dot" data-state="offline" id="peek-conn-dot" title="Live connection: offline" aria-label="Live connection status"></span>
     </div>
     <button class="focus-icon-btn focus-more" onclick="openFocusSheet()" aria-label="More options" title="More">
       <i data-lucide="more-horizontal"></i>
@@ -33978,6 +34032,298 @@ async function _jrnlSaveConfig() {
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+<script>
+// ═══════ LiveTerminal — xterm.js wired to /ws/sessions/{name} ═══════
+//
+// Replaces the 3-second polling refreshPeek() with a real-time WebSocket
+// stream. Bytes from tmux pty arrive char-by-char with full ANSI preserved.
+// User keystrokes echo back through the same WS to `tmux send-keys`.
+//
+// Backend protocol (see FROM_SCRATCH_VISION.md §1):
+//   Client → Server (JSON text frames):
+//     {"type":"input","data":"<text>"}    — literal paste, no Enter
+//     {"type":"key","data":"<tmux key>"}  — "Enter", "C-c", "BSpace", ...
+//     {"type":"resize","cols":N,"rows":N} — terminal size
+//   Server → Client:
+//     binary frames = raw pty bytes (ANSI preserved)
+//     text frames   = also accepted (write through to terminal)
+//     first message after handshake = replay buffer (last ~200 lines)
+//
+// Backend may not be live yet — the class auto-reconnects with backoff.
+
+(function() {
+  if (typeof window === 'undefined') return;
+  // Guard against double-load when file watcher hot-reloads
+  if (window.LiveTerminal) return;
+
+  // Map xterm.js raw onData() bytes into either {type:"input"} (literal)
+  // or {type:"key"} (tmux key name) frames. Most input is passed literally —
+  // tmux's `send-keys -l` handles control chars fine. But Enter/special keys
+  // need named sends so tmux dispatches them correctly.
+  function _classifyData(data) {
+    // \r (CR, 0x0d) = Enter
+    if (data === '\r') return { type: 'key', data: 'Enter' };
+    // \x7f (DEL) = Backspace on most ttys (xterm sends DEL for backspace)
+    if (data === '\x7f') return { type: 'key', data: 'BSpace' };
+    // \t = Tab
+    if (data === '\t') return { type: 'key', data: 'Tab' };
+    // ESC alone
+    if (data === '\x1b') return { type: 'key', data: 'Escape' };
+    // Arrow keys (CSI sequences)
+    if (data === '\x1b[A') return { type: 'key', data: 'Up' };
+    if (data === '\x1b[B') return { type: 'key', data: 'Down' };
+    if (data === '\x1b[C') return { type: 'key', data: 'Right' };
+    if (data === '\x1b[D') return { type: 'key', data: 'Left' };
+    // Home/End/PageUp/PageDown
+    if (data === '\x1b[H' || data === '\x1bOH') return { type: 'key', data: 'Home' };
+    if (data === '\x1b[F' || data === '\x1bOF') return { type: 'key', data: 'End' };
+    if (data === '\x1b[5~') return { type: 'key', data: 'PageUp' };
+    if (data === '\x1b[6~') return { type: 'key', data: 'PageDown' };
+    // Ctrl-A..Ctrl-Z = 0x01..0x1a (excluding \t=0x09, \r=0x0d already handled).
+    if (data.length === 1) {
+      const code = data.charCodeAt(0);
+      if (code >= 1 && code <= 26 && code !== 9 && code !== 13) {
+        const letter = String.fromCharCode(code + 64);  // 1→A, 2→B...
+        return { type: 'key', data: 'C-' + letter.toLowerCase() };
+      }
+    }
+    // Default: literal text (paste, normal typing)
+    return { type: 'input', data: data };
+  }
+
+  class LiveTerminal {
+    constructor(container, sessionName) {
+      this.name = sessionName;
+      this.container = container;
+      this.ws = null;
+      this._reconnectTimer = null;
+      this._backoff = 300;
+      this._destroyed = false;
+      this._resizeObserver = null;
+      this._lastSentSize = null;
+      this.state = 'offline';
+
+      // Sanity-check xterm.js loaded
+      if (typeof Terminal === 'undefined') {
+        console.warn('[LiveTerminal] xterm.js Terminal global not loaded — falling back');
+        throw new Error('xterm-not-loaded');
+      }
+
+      // Read design tokens at construction time so theme changes apply
+      const cs = getComputedStyle(document.body);
+      const fg = (cs.getPropertyValue('--label-primary') || '#e8e8ec').trim() || '#e8e8ec';
+      // ANSI palette — map to iOS system tints where they make sense
+      const tint = (n, fb) => (cs.getPropertyValue(n) || fb).trim() || fb;
+
+      this.term = new Terminal({
+        cursorBlink: true,
+        cursorStyle: 'block',
+        fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+        fontSize: 13,
+        lineHeight: 1.4,
+        scrollback: 5000,
+        allowTransparency: true,
+        macOptionIsMeta: true,
+        rightClickSelectsWord: true,
+        theme: {
+          background: 'rgba(0,0,0,0)',
+          foreground: fg,
+          cursor: fg,
+          cursorAccent: '#000000',
+          selectionBackground: 'rgba(10,132,255,0.30)',
+          // 8-color ANSI palette (iOS system tints where appropriate)
+          black:   '#2c2c2e',
+          red:     tint('--tint-red',    '#ff453a'),
+          green:   tint('--tint-green',  '#30d158'),
+          yellow:  tint('--tint-yellow', '#ffd60a'),
+          blue:    tint('--tint-blue',   '#0a84ff'),
+          magenta: tint('--tint-pink',   '#ff375f'),
+          cyan:    tint('--tint-teal',   '#64d2ff'),
+          white:   '#e8e8ec',
+          // Bright variants — same hues, lighter
+          brightBlack:   '#48484a',
+          brightRed:     '#ff6961',
+          brightGreen:   '#5be37b',
+          brightYellow:  '#ffe14a',
+          brightBlue:    '#5ea5ff',
+          brightMagenta: '#ff6f8a',
+          brightCyan:    '#8eddff',
+          brightWhite:   '#ffffff',
+        },
+      });
+
+      // FitAddon — sizes terminal to container
+      try {
+        this.fit = new FitAddon.FitAddon();
+        this.term.loadAddon(this.fit);
+      } catch (e) {
+        console.warn('[LiveTerminal] FitAddon unavailable', e);
+        this.fit = null;
+      }
+      // WebLinks — make URLs clickable
+      try {
+        this.term.loadAddon(new WebLinksAddon.WebLinksAddon());
+      } catch (e) { /* optional */ }
+
+      // Mount + initial fit
+      this.term.open(container);
+      this._safeFit();
+
+      this._wireInput();
+      this._observeResize();
+      this._connect();
+    }
+
+    _safeFit() {
+      if (!this.fit) return;
+      try {
+        this.fit.fit();
+      } catch (e) { /* container not measurable yet */ }
+    }
+
+    _setStatus(state) {
+      this.state = state;
+      const dot = document.getElementById('peek-conn-dot');
+      if (dot) {
+        dot.dataset.state = state;
+        const labels = { live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline' };
+        dot.title = 'Live connection: ' + (labels[state] || state);
+      }
+    }
+
+    _wireInput() {
+      this.term.onData((data) => {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        const frame = _classifyData(data);
+        try { this.ws.send(JSON.stringify(frame)); } catch (e) { /* socket dying */ }
+      });
+    }
+
+    _sendResize() {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+      const cols = this.term.cols, rows = this.term.rows;
+      if (!cols || !rows) return;
+      const key = cols + 'x' + rows;
+      if (this._lastSentSize === key) return;
+      this._lastSentSize = key;
+      try { this.ws.send(JSON.stringify({ type: 'resize', cols, rows })); } catch (e) {}
+    }
+
+    _observeResize() {
+      if (typeof ResizeObserver === 'undefined') return;
+      this._resizeObserver = new ResizeObserver(() => {
+        this._safeFit();
+        this._sendResize();
+      });
+      try { this._resizeObserver.observe(this.container); } catch (e) {}
+    }
+
+    _connect() {
+      if (this._destroyed) return;
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const tok = (typeof _authToken !== 'undefined' && _authToken) ? _authToken : '';
+      const qs = tok ? ('?_token=' + encodeURIComponent(tok)) : '';
+      const url = proto + '://' + location.host + '/ws/sessions/'
+                  + encodeURIComponent(this.name) + qs;
+      let ws;
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        console.warn('[LiveTerminal] WS construct failed', e);
+        this._scheduleReconnect();
+        return;
+      }
+      ws.binaryType = 'arraybuffer';
+      this.ws = ws;
+      this._setStatus('reconnecting');
+
+      ws.onopen = () => {
+        if (this._destroyed) { try { ws.close(); } catch(e){} return; }
+        this._backoff = 300;  // reset
+        this._setStatus('live');
+        this._lastSentSize = null;
+        this._sendResize();
+      };
+      ws.onmessage = (ev) => {
+        if (this._destroyed) return;
+        const d = ev.data;
+        if (d instanceof ArrayBuffer) {
+          this.term.write(new Uint8Array(d));
+        } else if (typeof d === 'string') {
+          this.term.write(d);
+        } else if (d && d.arrayBuffer) {
+          // Blob (some browsers default to Blob even with binaryType=arraybuffer)
+          d.arrayBuffer().then(buf => {
+            if (!this._destroyed) this.term.write(new Uint8Array(buf));
+          });
+        }
+      };
+      ws.onerror = () => {
+        // onclose will fire next and trigger reconnect
+        if (this.state !== 'reconnecting') this._setStatus('offline');
+      };
+      ws.onclose = () => {
+        if (this._destroyed) return;
+        this._scheduleReconnect();
+      };
+    }
+
+    _scheduleReconnect() {
+      this._setStatus('reconnecting');
+      clearTimeout(this._reconnectTimer);
+      const delay = Math.min(this._backoff, 5000);
+      this._backoff = Math.min(Math.round(this._backoff * 1.6), 5000);
+      this._reconnectTimer = setTimeout(() => this._connect(), delay);
+    }
+
+    // Programmatic send — used by external command-input dock
+    sendInput(text) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+      try { this.ws.send(JSON.stringify({ type: 'input', data: text })); return true; }
+      catch (e) { return false; }
+    }
+    sendKey(keyName) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+      try { this.ws.send(JSON.stringify({ type: 'key', data: keyName })); return true; }
+      catch (e) { return false; }
+    }
+
+    isLive() {
+      return this.ws && this.ws.readyState === WebSocket.OPEN;
+    }
+
+    focus() {
+      try { this.term.focus(); } catch (e) {}
+    }
+
+    destroy() {
+      this._destroyed = true;
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+      if (this._resizeObserver) {
+        try { this._resizeObserver.disconnect(); } catch (e) {}
+        this._resizeObserver = null;
+      }
+      if (this.ws) {
+        try { this.ws.close(1000, 'client-destroy'); } catch (e) {}
+        this.ws = null;
+      }
+      try { this.term.dispose(); } catch (e) {}
+      this.term = null;
+      // Reset the dot
+      const dot = document.getElementById('peek-conn-dot');
+      if (dot) { dot.dataset.state = 'offline'; dot.title = 'Live connection: offline'; }
+    }
+  }
+
+  window.LiveTerminal = LiveTerminal;
+  // Capability flag — false-y if xterm globals aren't loaded yet
+  window._liveTermSupported = (typeof Terminal !== 'undefined'
+                               && typeof WebSocket !== 'undefined');
+})();
+</script>
+
 <div id="grid-view">
   <div class="grid-toolbar">
     <span class="grid-toolbar-title">Workspace</span>
