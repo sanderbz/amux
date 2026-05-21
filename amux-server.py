@@ -9943,6 +9943,36 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     min-width: 0;
   }
+  /* Tappable chip wrapping status-dot + title + ▾ — opens session picker.
+     Sized so the whole header row reads as one tap target while keeping
+     transparent rest state. */
+  .focus-title-chip {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    margin: 0;
+    padding: 4px var(--s-2);
+    min-height: 36px;
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    min-width: 0; max-width: 100%;
+    color: inherit;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard);
+  }
+  .focus-title-chip:hover { background: var(--bg-tinted); }
+  .focus-title-chip:active { transform: scale(0.97); background: var(--bg-layer-3); }
+  .focus-title-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .focus-title-chevron {
+    font-size: 0.7em;
+    line-height: 1;
+    color: var(--label-tertiary);
+    flex-shrink: 0;
+    margin-left: 2px;
+    transform: translateY(1px);
+  }
   /* Status dot — pulse only when running, quiet otherwise */
   .focus-status-dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -10425,6 +10455,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .focus-sheet-divider {
     height: 1px; background: var(--sep-non-opaque);
     margin: var(--s-2) var(--s-4);
+  }
+  /* Session-picker sheet — two-line label (name + dir path) and a
+     centered status dot in the icon slot. */
+  .focus-sheet-item .focus-status-dot--inline {
+    width: 10px; height: 10px;
+  }
+  .focus-sheet-item .session-picker-name {
+    display: block;
+    font: var(--weight-medium) var(--text-body) var(--font-sans);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .focus-sheet-item .session-picker-path {
+    display: block;
+    margin-top: 2px;
+    font: var(--weight-regular) var(--text-caption1) var(--font-mono, var(--font-sans));
+    color: var(--label-tertiary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    direction: rtl; text-align: left;  /* show the meaningful tail of long paths */
   }
 
   /* ── Sub-panel overrides so they fit inside focus-shell ── */
@@ -15928,8 +15976,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       <i data-lucide="chevron-left"></i>
     </button>
     <div class="focus-title-wrap">
-      <span class="focus-status-dot" id="peek-session-status" aria-hidden="true"></span>
-      <h2 class="focus-title" id="peek-title">peek</h2>
+      <!-- Tappable session chip: status dot + name + ▾ chevron opens picker sheet.
+           #peek-title is preserved as the inner span so existing callers that
+           set its textContent (e.g. openPeek, updatePeekStatus) keep working. -->
+      <button class="focus-title-chip" id="peek-title-chip" type="button"
+              onclick="openSessionPickerSheet()"
+              aria-haspopup="dialog" aria-label="Switch session">
+        <span class="focus-status-dot" id="peek-session-status" aria-hidden="true"></span>
+        <h2 class="focus-title" id="peek-title">peek</h2>
+        <span class="focus-title-chevron" aria-hidden="true">&#x25BE;</span>
+      </button>
       <span class="focus-conn-dot" data-state="offline" id="peek-conn-dot" title="Live connection: offline" aria-label="Live connection status"></span>
     </div>
     <button class="focus-icon-btn focus-more" onclick="openFocusSheet()" aria-label="More options" title="More">
@@ -16065,6 +16121,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="focus-sheet-surface" role="dialog" aria-label="Focus options">
       <div class="focus-sheet-grabber" aria-hidden="true"></div>
       <ul class="focus-sheet-list" id="focus-sheet-list"></ul>
+    </div>
+  </div>
+
+  <!-- Bottom sheet (session picker, opened by tappable header chip) -->
+  <div class="focus-sheet" id="session-picker-sheet" data-state="closed" aria-hidden="true">
+    <div class="focus-sheet-backdrop" onclick="closeSessionPickerSheet()"></div>
+    <div class="focus-sheet-surface" role="dialog" aria-label="Switch session">
+      <div class="focus-sheet-grabber" aria-hidden="true"></div>
+      <ul class="focus-sheet-list" id="session-picker-sheet-list"></ul>
     </div>
   </div>
 
@@ -21271,6 +21336,75 @@ function _syncPeekOverlayToVisualViewport() {
     _focusCloseSheet('focus-sheet');
     if (typeof setPeekTab === 'function') setPeekTab(id);
     setTimeout(_focusUpdateSubtabPill, 30);
+  };
+
+  // ── Public: open the session-picker sheet (tappable header chip) ──
+  // Lists all sessions with status dots + paths. Tapping a session calls
+  // openPeek(name) — LiveTerminal tear-down + remount is already idempotent,
+  // so we just close the picker and let openPeek swap the terminal in place.
+  window.openSessionPickerSheet = function openSessionPickerSheet() {
+    const list = document.getElementById('session-picker-sheet-list');
+    if (!list) return;
+    const all = Array.isArray(window.sessions) ? window.sessions.slice() : [];
+    // Sort: running first, then alpha — mirrors the overview card order so
+    // tapping users find what they expect at the top of the picker.
+    all.sort((a, b) => {
+      const ar = a && a.running ? 1 : 0;
+      const br = b && b.running ? 1 : 0;
+      if (ar !== br) return br - ar;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    const _esc = (typeof esc === 'function')
+      ? esc
+      : (s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'));
+    let html = '<div class="focus-sheet-section-label">Switch session</div>';
+    if (!all.length) {
+      html += '<li class="focus-sheet-item" style="opacity:0.6;cursor:default;">'
+            + '  <span class="focus-sheet-item-label">No sessions</span>'
+            + '</li>';
+    } else {
+      for (const s of all) {
+        if (!s || !s.name) continue;
+        // Derive status string the same way card rendering does (see
+        // _miniStatus around the overview card renderer).
+        let status = 'idle';
+        if (!s.running) status = 'stopped';
+        else if (s.status === 'active' || s.status === 'running') status = 'running';
+        else if (s.status === 'waiting') status = 'waiting';
+        else if (s.status === 'rate-limited') status = 'rate-limited';
+        const dir = s.dir || s.work_dir || '';
+        const isCur = (peekSession && s.name === peekSession);
+        const cls = 'focus-sheet-item' + (isCur ? ' is-active' : '');
+        const check = isCur
+          ? '<span class="focus-sheet-item-check"><i data-lucide="check"></i></span>'
+          : '';
+        const nameAttr = _esc(s.name).replace(/'/g, "\\'");
+        html += '<li class="' + cls + '" onclick="pickSessionFromSheet(\'' + nameAttr + '\')">'
+              + '  <span class="focus-sheet-item-icon">'
+              + '    <span class="focus-status-dot focus-status-dot--inline" data-status="' + status + '" aria-hidden="true"></span>'
+              + '  </span>'
+              + '  <span class="focus-sheet-item-label">'
+              + '    <span class="session-picker-name">' + _esc(s.name) + '</span>'
+              + (dir ? '<span class="session-picker-path">' + _esc(dir) + '</span>' : '')
+              + '  </span>'
+              + '  ' + check
+              + '</li>';
+      }
+    }
+    list.innerHTML = html;
+    if (window.lucide && lucide.createIcons) lucide.createIcons();
+    _focusOpenSheet('session-picker-sheet');
+  };
+  window.closeSessionPickerSheet = function() { _focusCloseSheet('session-picker-sheet'); };
+
+  // Pick a session from the picker sheet → swap LiveTerminal in place.
+  window.pickSessionFromSheet = function pickSessionFromSheet(name) {
+    _focusCloseSheet('session-picker-sheet');
+    if (!name) return;
+    if (name === peekSession) return;  // already focused — no-op
+    if (typeof window.openPeek === 'function') {
+      window.openPeek(name);
+    }
   };
 
   // ── Dock + sheet (quick actions) ──
