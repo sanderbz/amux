@@ -14014,6 +14014,212 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   body.light #notif-btn:hover, body.light .settings-btn:hover { background: var(--bg-layer-3); }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     CMD+K COMMAND PALETTE — Raycast/Linear style fuzzy session switcher
+     Class names are prefixed `cmd-palette-` to avoid collision with any
+     legacy `.palette-*` selectors and any concurrent agent CSS.
+     ══════════════════════════════════════════════════════════════════════ */
+  .cmd-palette {
+    position: fixed; inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 15vh var(--s-5) var(--s-5);
+    /* Don't intercept clicks when hidden */
+    pointer-events: auto;
+  }
+  .cmd-palette[hidden] { display: none; }
+  .cmd-palette-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+    opacity: 0;
+    animation: cmd-palette-backdrop-in 150ms var(--ease-standard) forwards;
+  }
+  @keyframes cmd-palette-backdrop-in { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .cmd-palette-backdrop { animation: none; opacity: 1; }
+  }
+  .cmd-palette-panel {
+    position: relative;
+    max-width: 640px;
+    width: 100%;
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    background: var(--mat-thick);
+    border: 1px solid var(--sep-non-opaque);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+            backdrop-filter: blur(40px) saturate(180%);
+    /* Motion One drives the spring entrance — start hidden for a clean enter */
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  /* Fallback show if Motion One isn't loaded yet — ensures palette is usable */
+  .cmd-palette-panel.cmd-palette-ready { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .cmd-palette-panel { opacity: 1; transform: none; transition: none; }
+  }
+  .cmd-palette-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--sep-non-opaque);
+  }
+  .cmd-palette-icon {
+    width: 18px; height: 18px;
+    color: var(--label-secondary);
+    flex-shrink: 0;
+  }
+  .cmd-palette-icon svg {
+    width: 18px; height: 18px;
+    stroke-width: 1.5;
+    color: var(--label-secondary);
+  }
+  .cmd-palette-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    outline: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    min-width: 0;
+    font: var(--weight-regular) var(--text-body)/1.3 var(--font-sans);
+    color: var(--label-primary);
+    caret-color: var(--tint-blue);
+  }
+  .cmd-palette-input::placeholder { color: var(--label-tertiary); }
+  .cmd-palette-input::-webkit-search-cancel-button { display: none; }
+  .cmd-palette-esc {
+    font: var(--weight-medium) var(--text-caption1)/1.6 var(--font-mono);
+    color: var(--label-secondary);
+    background: var(--bg-tinted);
+    border-radius: var(--r-xs);
+    padding: 0 var(--s-2);
+    border: 0;
+    flex-shrink: 0;
+  }
+  .cmd-palette-results {
+    list-style: none;
+    margin: 0;
+    padding: var(--s-1);
+    max-height: 60vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Subtle scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--label-quaternary) transparent;
+  }
+  .cmd-palette-results::-webkit-scrollbar { width: 8px; }
+  .cmd-palette-results::-webkit-scrollbar-thumb {
+    background: var(--label-quaternary);
+    border-radius: 999px;
+  }
+  .cmd-palette-results:empty::before {
+    content: 'No matching sessions';
+    display: block;
+    padding: var(--s-6) var(--s-4);
+    text-align: center;
+    font: var(--text-footnote) var(--font-sans);
+    color: var(--label-tertiary);
+  }
+  .cmd-palette-results li {
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--r-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    cursor: pointer;
+    color: var(--label-primary);
+    /* Avoid awkward focus rings inside listbox; aria-selected is the focus signal */
+    user-select: none;
+  }
+  .cmd-palette-results li[aria-selected="true"] {
+    background: var(--tint-blue);
+    color: #ffffff;
+  }
+  .cmd-palette-results li[aria-selected="true"] .cmd-result-path {
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .cmd-palette-results li[aria-selected="true"] .cmd-result-dot[data-status="stopped"] {
+    background: rgba(255, 255, 255, 0.55);
+  }
+  .cmd-result-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--label-tertiary);
+  }
+  .cmd-result-dot[data-status="running"] {
+    background: var(--tint-green);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint-green) 28%, transparent);
+  }
+  .cmd-result-text {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cmd-result-name {
+    font: var(--weight-medium) var(--text-callout)/1.25 var(--font-sans);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmd-result-path {
+    font: var(--text-caption1)/1.3 var(--font-mono);
+    color: var(--label-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cmd-result-badge {
+    margin-left: auto;
+    font: var(--weight-medium) var(--text-caption2) var(--font-sans);
+    color: var(--label-tertiary);
+    flex-shrink: 0;
+  }
+  .cmd-palette-results li[aria-selected="true"] .cmd-result-badge {
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .cmd-palette-footer {
+    padding: var(--s-2) var(--s-4);
+    border-top: 1px solid var(--sep-non-opaque);
+    font: var(--text-caption1) var(--font-sans);
+    color: var(--label-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+    align-items: center;
+  }
+  .cmd-palette-footer kbd {
+    font: var(--weight-medium) var(--text-caption1)/1.6 var(--font-mono);
+    color: var(--label-secondary);
+    background: var(--bg-tinted);
+    border-radius: var(--r-xs);
+    padding: 0 var(--s-2);
+    margin-right: 4px;
+  }
+  /* Mobile: pull the panel down a bit and use the full width nicely */
+  @media (max-width: 600px) {
+    .cmd-palette {
+      padding-top: 8vh;
+      padding-left: var(--s-3);
+      padding-right: var(--s-3);
+    }
+    .cmd-palette-results { max-height: 50vh; }
+    .cmd-palette-footer { font-size: var(--text-caption2); gap: var(--s-3); }
+  }
+
 </style>
 </head>
 <body>
