@@ -37395,6 +37395,151 @@ async function _jrnlSaveConfig() {
 })();
 </script>
 
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Focus-mode nav buttons (P0-5): Hide-keyboard + Gesture-mode toggle
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Two utility buttons that live in the accessory bar's right-side nav cluster:
+//
+//   • Hide-keyboard (chevron-down): blurs the input + uses a hidden "sink"
+//     button focus/blur trick to coax iOS Safari into actually dropping the
+//     soft keyboard (a plain .blur() isn't always enough on iOS PWAs).
+//
+//   • Gesture-mode toggle (hand icon): flips window._gestureMode. When on,
+//     the joystick + two-finger handlers no-op (they each early-return on
+//     window._gestureMode) so the user gets native xterm scroll/zoom without
+//     any input being dispatched. Visual: the live-term host gets a 1px
+//     dashed --tint-blue outline via the body.amux-gesture-mode CSS rule
+//     that already shipped with the joystick stylesheet.
+//
+// FALLBACK STRATEGY
+// The full P0-2 swipeable accessory bar (4-key groups + Manage sheet) is
+// landing separately. Until its renderer is in place, the #focus-accessory
+// div is empty when the input is focused. To make hide-kb / gesture-mode
+// usable on day one, this module wraps _dockOnInputFocus and ensures the
+// nav buttons are present as an inline fallback. When P0-2's
+// renderAccessoryGroups() lands, it will rebuild the bar and own the layout
+// — this code detects existing nav buttons (by id) and is idempotent.
+// ─────────────────────────────────────────────────────────────────────────────
+(function() {
+  // window._gestureMode is the single source of truth — read by the joystick
+  // and two-finger handlers above.
+  window._gestureMode = false;
+
+  // ── Hide-keyboard ──────────────────────────────────────────────────────
+  // Plain inp.blur() isn't always enough on iOS Safari (especially inside a
+  // PWA); briefly focusing then blurring a hidden non-input element is the
+  // canonical workaround to convince UIKit the active text field is gone.
+  function hideMobileKeyboard() {
+    const inp = document.getElementById('peek-cmd-input');
+    if (inp) {
+      try { inp.blur(); } catch (e) {}
+    }
+    let sink = document.getElementById('amux-kb-sink');
+    if (!sink) {
+      sink = document.createElement('button');
+      sink.id = 'amux-kb-sink';
+      sink.type = 'button';
+      sink.tabIndex = -1;
+      sink.setAttribute('aria-hidden', 'true');
+      sink.style.cssText = 'position:fixed;left:-9999px;top:-9999px;'
+                         + 'width:1px;height:1px;opacity:0;'
+                         + 'pointer-events:none;';
+      document.body.appendChild(sink);
+    }
+    try { sink.focus(); sink.blur(); } catch (e) {}
+  }
+  window.hideMobileKeyboard = hideMobileKeyboard;
+
+  // ── Gesture-mode toggle ────────────────────────────────────────────────
+  // The body.amux-gesture-mode class drives the live-term-host dashed outline
+  // (see CSS line ~10196). Joystick + two-finger handlers each check
+  // window._gestureMode and bail. The nav button itself gets the
+  // .amux-nav-active tint (CSS ~10201) so the toggle state is visible.
+  function toggleGestureMode() {
+    window._gestureMode = !window._gestureMode;
+    document.body.classList.toggle('amux-gesture-mode', window._gestureMode);
+    const btn = document.getElementById('amux-gesture-btn');
+    if (btn) {
+      btn.classList.toggle('amux-nav-active', window._gestureMode);
+      btn.setAttribute('aria-pressed', window._gestureMode ? 'true' : 'false');
+    }
+  }
+  window.toggleGestureMode = toggleGestureMode;
+
+  // ── Inline fallback: ensure nav buttons are present in the accessory ──
+  // Idempotent: if the full P0-2 renderer has already populated the bar with
+  // these ids, do nothing. Otherwise inject a minimal .acc-nav cluster on
+  // the right so the buttons are always usable.
+  function ensureAccessoryNavButtons() {
+    const acc = document.getElementById('focus-accessory');
+    if (!acc) return;
+    // Already populated by P0-2 (or by us) — bail.
+    if (document.getElementById('amux-hide-kb-btn')
+     && document.getElementById('amux-gesture-btn')) return;
+    // If the accessory was already populated by P0-2 *without* our buttons,
+    // append them to its existing .acc-nav (or create one).
+    let nav = acc.querySelector('.acc-nav');
+    if (!nav) {
+      nav = document.createElement('div');
+      nav.className = 'acc-nav';
+      acc.appendChild(nav);
+    }
+    if (!document.getElementById('amux-hide-kb-btn')) {
+      const hk = document.createElement('button');
+      hk.id = 'amux-hide-kb-btn';
+      hk.type = 'button';
+      hk.className = 'focus-kbd-nav';
+      hk.setAttribute('aria-label', 'Hide keyboard');
+      hk.innerHTML = '<i data-lucide="chevron-down"></i>';
+      // pointerdown so the input doesn't lose focus → re-trigger keyboard
+      // flicker before we get a chance to blur it cleanly.
+      hk.addEventListener('pointerdown', function(e) {
+        e.preventDefault(); hideMobileKeyboard();
+      });
+      nav.appendChild(hk);
+    }
+    if (!document.getElementById('amux-gesture-btn')) {
+      const gm = document.createElement('button');
+      gm.id = 'amux-gesture-btn';
+      gm.type = 'button';
+      gm.className = 'focus-kbd-nav';
+      gm.setAttribute('aria-label', 'Gesture mode (touchpad scrolling)');
+      gm.setAttribute('aria-pressed', 'false');
+      gm.innerHTML = '<i data-lucide="hand"></i>';
+      gm.addEventListener('pointerdown', function(e) {
+        e.preventDefault(); toggleGestureMode();
+      });
+      nav.appendChild(gm);
+    }
+    if (window.lucide && lucide.createIcons) {
+      try { lucide.createIcons(); } catch (e) {}
+    }
+  }
+
+  // Wrap _dockOnInputFocus — runs every time the input gains focus, which is
+  // when the accessory bar un-hides. Cheap (does work only if buttons missing).
+  const _origFocus = window._dockOnInputFocus;
+  window._dockOnInputFocus = function() {
+    if (typeof _origFocus === 'function') {
+      try { _origFocus.apply(this, arguments); } catch (e) {}
+    }
+    // Defer one tick so a parallel P0-2 renderer (if it runs on the same
+    // focus event) wins layout; we only add what's missing.
+    setTimeout(ensureAccessoryNavButtons, 0);
+  };
+
+  // Also run once on DOMContentLoaded for the case where the user opens
+  // focus mode and the input auto-focuses BEFORE the wrap takes effect.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureAccessoryNavButtons);
+  } else {
+    setTimeout(ensureAccessoryNavButtons, 0);
+  }
+})();
+</script>
+
 <div id="grid-view">
   <div class="grid-toolbar">
     <span class="grid-toolbar-title">Workspace</span>
