@@ -10099,17 +10099,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     scrollbar-width: none; -ms-overflow-style: none;
     padding: var(--s-1) 0;
     margin-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scroll-padding-right: 16px;
+    /* Fade-mask on the right edge as a hint that more is scrollable */
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
   }
   .focus-accessory::-webkit-scrollbar { display: none; }
   .focus-kbd-btn {
     flex: 0 0 auto;
-    height: 36px; min-width: 44px;
+    height: 44px; min-width: 44px;
     padding: 0 var(--s-3);
     border: 0;
     border-radius: var(--r-sm);
     background: var(--bg-layer-2);
     color: var(--label-primary);
     font: var(--weight-semibold) var(--text-caption1) var(--font-mono);
+    scroll-snap-align: start;
     cursor: pointer; user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: background var(--duration-fast) var(--ease-standard),
