@@ -6288,9 +6288,7 @@ def start_session(name: str, extra_flags: str = "", _skip_conv_id: bool = False)
                 mcp_chrome = mcp_dir / "mcp-chrome.json"
                 if mcp_chrome.exists():
                     cmd += f" --mcp-config {shlex.quote(str(mcp_chrome))}"
-            # Default to sonnet if no --model specified anywhere
-            if "--model" not in cmd:
-                cmd += " --model sonnet"
+            # Patched: skip hardcoded --model so Claude uses account default
         try:
             tmux_sess = tmux_name(name)
             # Build shell setup string — skip Claude env cleanup for codex
@@ -6507,8 +6505,7 @@ def start_session(name: str, extra_flags: str = "", _skip_conv_id: bool = False)
                         mcp_chrome = mcp_dir / "mcp-chrome.json"
                         if mcp_chrome.exists():
                             cmd_fresh += f" --mcp-config {shlex.quote(str(mcp_chrome))}"
-                    if "--model" not in cmd_fresh:
-                        cmd_fresh += " --model sonnet"
+                    # Patched: skip hardcoded --model so Claude uses account default
                     subprocess.run(["tmux", "send-keys", "-t", tmux_target(name), "-l", cmd_fresh],
                                    capture_output=True, timeout=5)
                     time.sleep(0.15)
