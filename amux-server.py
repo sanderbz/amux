@@ -10052,11 +10052,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: #0a0a0c !important;
     color-scheme: dark;
     overflow: hidden;
-    /* Guarantee a measurable height even at peek detent so FitAddon
-       computes ≥1 row immediately. Without this, the sheet body can be
-       0px mid-transition and FitAddon falls back to a 1-row terminal
-       that never grows because no resize event fires. */
-    min-height: 120px;
+    /* Guarantee enough height at peek detent for ~7 rows of output so
+       the user sees meaningful terminal content the moment the sheet
+       opens. Char cell = 13px × 1.4 line-height = ~18.2px. With 12px
+       top + bottom padding, 160px → ~7 rows. Without this, the sheet
+       body can be 0px mid-transition and FitAddon falls back to a
+       1-row terminal that never grows because no resize event fires. */
+    min-height: 160px;
   }
   #peek-body.live-term-host .xterm,
   #peek-body.live-term-host .xterm-viewport,
@@ -10071,6 +10073,67 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   /* iOS-style soft caret (already xterm.theme.cursor, but keep CSS in sync) */
   #peek-body.live-term-host .xterm-cursor-layer { mix-blend-mode: normal; }
+
+  /* ── Termius-style hold-anywhere arrow joystick (P0-3) ──
+     Faint compass rose anchored to the touch origin. Pointer-events:none so
+     the underlying touch stream still reaches the gesture handler. Animation
+     is suppressed under prefers-reduced-motion. */
+  #joystick-rose {
+    position: fixed; display: none; pointer-events: none;
+    transform: translate(-50%, -50%);
+    width: 128px; height: 128px;
+    z-index: 9999;
+    color: var(--tint-blue, #0a84ff);
+    font-size: 14px;
+    -webkit-user-select: none; user-select: none;
+    will-change: opacity;
+    opacity: 0.85;
+    animation: jr-pulse 1.6s ease-in-out infinite;
+  }
+  #joystick-rose::before {
+    content: ''; position: absolute; inset: 22px;
+    border: 1px dashed currentColor;
+    border-radius: 50%;
+    opacity: 0.55;
+  }
+  #joystick-rose .jr-arrow {
+    position: absolute;
+    width: 18px; height: 18px;
+    display: grid; place-items: center;
+    font-weight: 700;
+    text-shadow: 0 0 6px rgba(0,0,0,0.65);
+    transition: transform 0.08s ease-out, opacity 0.08s ease-out;
+  }
+  #joystick-rose .jr-u { top: 0;    left: 50%; transform: translateX(-50%); }
+  #joystick-rose .jr-d { bottom: 0; left: 50%; transform: translateX(-50%); }
+  #joystick-rose .jr-l { left: 0;   top: 50%;  transform: translateY(-50%); }
+  #joystick-rose .jr-r { right: 0;  top: 50%;  transform: translateY(-50%); }
+  #joystick-rose[data-dir="Up"]    .jr-u { transform: translateX(-50%) scale(1.4); opacity: 1; }
+  #joystick-rose[data-dir="Down"]  .jr-d { transform: translateX(-50%) scale(1.4); opacity: 1; }
+  #joystick-rose[data-dir="Left"]  .jr-l { transform: translateY(-50%) scale(1.4); opacity: 1; }
+  #joystick-rose[data-dir="Right"] .jr-r { transform: translateY(-50%) scale(1.4); opacity: 1; }
+  @keyframes jr-pulse {
+    0%, 100% { opacity: 0.75; }
+    50%      { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #joystick-rose { animation: none; opacity: 0.85; }
+    #joystick-rose .jr-arrow { transition: none; }
+  }
+
+  /* ── Gesture-mode visual marker (P0-5) ──
+     Subtle dashed blue outline on the live terminal host while gesture mode
+     is on, signalling "touches will not dispatch input keys here". */
+  body.amux-gesture-mode #peek-body.live-term-host {
+    outline: 1px dashed var(--tint-blue, #0a84ff);
+    outline-offset: -3px;
+  }
+  /* Nav button "active" tint for the gesture toggle */
+  .focus-kbd-btn.amux-nav-active,
+  .focus-kbd-nav.amux-nav-active {
+    background: color-mix(in srgb, var(--tint-blue, #0a84ff) 22%, transparent);
+    color: var(--tint-blue, #0a84ff);
+  }
 
   /* ── Slide-down search bar (hidden by default; .open class reveals) ── */
   .focus-search-bar {
@@ -10456,6 +10519,233 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     height: 1px; background: var(--sep-non-opaque);
     margin: var(--s-2) var(--s-4);
   }
+
+  /* ── Snippets in dock-plus-sheet (P1-1) ── */
+  .focus-sheet-item.snippet-row .focus-sheet-item-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .snippet-row .snippet-name {
+    font: var(--weight-semibold) var(--text-body) var(--font-sans);
+    color: var(--label-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .snippet-row .snippet-preview {
+    font: var(--weight-regular) var(--text-caption1) var(--font-mono);
+    color: var(--label-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .snippet-row .snippet-mode-chip {
+    font: var(--weight-medium) var(--text-caption2) var(--font-sans);
+    color: var(--label-secondary);
+    background: var(--bg-tinted);
+    padding: 2px var(--s-2);
+    border-radius: var(--r-full);
+    flex-shrink: 0;
+    margin-left: var(--s-2);
+  }
+  .snippet-row .snippet-delete {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    margin-left: var(--s-1);
+    border: none; background: transparent;
+    color: var(--tint-red);
+    border-radius: var(--r-full);
+    display: grid; place-items: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-instant) var(--ease-standard);
+  }
+  .snippet-row .snippet-delete:hover { background: color-mix(in srgb, var(--tint-red) 18%, transparent); }
+  .snippet-row .snippet-delete i[data-lucide] { width: 18px; height: 18px; }
+  .snippet-empty {
+    padding: var(--s-2) var(--s-4) var(--s-3);
+    font: var(--weight-regular) var(--text-footnote) var(--font-sans);
+    color: var(--label-tertiary);
+  }
+  /* Inline snippet editor (rendered as a <li> inside the sheet list) */
+  .snippet-editor {
+    display: block;
+    padding: var(--s-3);
+    margin: var(--s-1) var(--s-1) var(--s-2);
+    background: var(--bg-layer-2);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+  }
+  .snippet-editor .se-label {
+    font: var(--weight-semibold) var(--text-caption1) var(--font-sans);
+    color: var(--label-secondary);
+    margin: 0 0 var(--s-1) 2px;
+  }
+  .snippet-editor input.se-name,
+  .snippet-editor textarea.se-payload {
+    width: 100%;
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-sm);
+    color: var(--label-primary);
+    padding: var(--s-2) var(--s-3);
+    font: var(--text-body) var(--font-sans);
+    box-sizing: border-box;
+    min-height: 40px;
+  }
+  .snippet-editor textarea.se-payload {
+    font-family: var(--font-mono);
+    font-size: var(--text-footnote);
+    min-height: 72px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+  .snippet-editor input.se-name:focus,
+  .snippet-editor textarea.se-payload:focus {
+    outline: none;
+    border-color: var(--tint-blue);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint-blue) 22%, transparent);
+  }
+  .snippet-editor .se-row {
+    display: flex; align-items: center; gap: var(--s-2);
+    margin: var(--s-2) 0;
+    min-height: 36px;
+  }
+  .snippet-editor .se-toggle {
+    flex: 1;
+    font: var(--weight-medium) var(--text-footnote) var(--font-sans);
+    color: var(--label-secondary);
+    display: flex; align-items: center; gap: var(--s-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .snippet-editor .se-toggle input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: var(--tint-blue);
+    margin: 0;
+  }
+  .snippet-editor .se-actions {
+    display: flex; gap: var(--s-2);
+    justify-content: flex-end;
+    margin-top: var(--s-2);
+  }
+  .snippet-editor .se-btn {
+    min-height: 40px;
+    padding: 0 var(--s-4);
+    border: none;
+    border-radius: var(--r-sm);
+    font: var(--weight-semibold) var(--text-footnote) var(--font-sans);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg-tinted);
+    color: var(--label-primary);
+    transition: background var(--duration-instant) var(--ease-standard);
+  }
+  .snippet-editor .se-btn:hover { background: var(--bg-layer-3); }
+  .snippet-editor .se-btn.primary { background: var(--tint-blue); color: white; }
+  .snippet-editor .se-btn.primary:hover { background: color-mix(in srgb, var(--tint-blue) 88%, white); }
+  .snippet-editor .se-btn.primary:disabled { background: var(--bg-tinted); color: var(--label-tertiary); cursor: not-allowed; }
+  .snippet-editor .se-btn.ghost { background: transparent; color: var(--label-secondary); }
+  .snippet-editor .se-hint {
+    font: var(--weight-regular) var(--text-caption2) var(--font-sans);
+    color: var(--label-tertiary);
+    margin-top: var(--s-1);
+  }
+
+  /* ── Dictation overlay (P1-5) ── */
+  .dictate-overlay {
+    position: fixed; inset: 0;
+    z-index: calc(var(--z-modal) + 10);
+    background: rgba(0,0,0,0.55);
+    -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: var(--s-6);
+    padding-bottom: max(var(--s-6), env(safe-area-inset-bottom));
+  }
+  .dictate-overlay[data-open="true"] { display: flex; }
+  .dictate-card {
+    width: 100%; max-width: 360px;
+    background: var(--mat-thick);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+            backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--s-6) var(--s-5) var(--s-5);
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--s-4);
+  }
+  .dictate-mic-wrap {
+    position: relative;
+    width: 96px; height: 96px;
+    display: grid; place-items: center;
+  }
+  .dictate-mic-pulse {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tint-red) 35%, transparent);
+    animation: dictate-pulse 1.4s ease-out infinite;
+  }
+  .dictate-mic-pulse.delay { animation-delay: 0.7s; }
+  @keyframes dictate-pulse {
+    0%   { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dictate-mic-pulse { animation: none; opacity: 0.35; }
+  }
+  .dictate-mic-core {
+    position: relative;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--tint-red);
+    display: grid; place-items: center;
+    color: white;
+    box-shadow: var(--shadow-md);
+  }
+  .dictate-mic-core i[data-lucide] { width: 28px; height: 28px; }
+  .dictate-title {
+    font: var(--weight-semibold) var(--text-title3) var(--font-sans);
+    color: var(--label-primary);
+    margin: 0;
+  }
+  .dictate-status {
+    font: var(--weight-regular) var(--text-footnote) var(--font-sans);
+    color: var(--label-secondary);
+    min-height: 18px;
+    text-align: center;
+  }
+  .dictate-transcript {
+    width: 100%;
+    min-height: 64px;
+    max-height: 140px;
+    overflow-y: auto;
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    padding: var(--s-3);
+    font: var(--weight-regular) var(--text-footnote) var(--font-mono);
+    color: var(--label-primary);
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .dictate-transcript .interim { color: var(--label-tertiary); }
+  .dictate-actions {
+    display: flex; gap: var(--s-3);
+    width: 100%;
+    justify-content: stretch;
+  }
+  .dictate-actions .btn-d {
+    flex: 1;
+    min-height: 44px;
+    border: none;
+    border-radius: var(--r-md);
+    font: var(--weight-semibold) var(--text-callout) var(--font-sans);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg-tinted);
+    color: var(--label-primary);
+    transition: background var(--duration-instant) var(--ease-standard);
+  }
+  .dictate-actions .btn-d:hover { background: var(--bg-layer-3); }
+  .dictate-actions .btn-d.stop { background: var(--tint-red); color: white; }
+  .dictate-actions .btn-d.stop:hover { background: color-mix(in srgb, var(--tint-red) 88%, white); }
+
   /* Session-picker sheet — two-line label (name + dir path) and a
      centered status dot in the icon slot. */
   .focus-sheet-item .focus-status-dot--inline {
@@ -10473,6 +10763,32 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     color: var(--label-tertiary);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     direction: rtl; text-align: left;  /* show the meaningful tail of long paths */
+  }
+
+  /* ── Edge-swipe chevron hints ──
+     Faint chevrons that fade in as the user drags from a screen edge. Sit
+     just inside the safe-area inset on each side so they don't get clipped
+     by the iOS notch / home-indicator. Pointer-events:none so they never
+     intercept the touch stream powering the swipe handler. */
+  .swipe-hint {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    font-size: 22px; line-height: 1;
+    color: var(--label-secondary);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 12;
+    text-shadow: 0 0 6px rgba(0,0,0,0.4);
+    transition: opacity 80ms linear;
+    -webkit-user-select: none; user-select: none;
+  }
+  .swipe-hint--left  { left:  max(10px, env(safe-area-inset-left, 10px)); }
+  .swipe-hint--right { right: max(10px, env(safe-area-inset-right, 10px)); }
+  @media (prefers-reduced-motion: reduce) {
+    .swipe-hint { transition: none; }
   }
 
   /* ── Sub-panel overrides so they fit inside focus-shell ── */
@@ -16068,16 +16384,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <!-- Slash menu popover renders ABOVE the input when active -->
     <div id="slash-ac-list" class="ac-list slash-ac focus-slash-menu"></div>
 
-    <!-- Keyboard accessory: only visible WHEN input is focused — quick keys -->
-    <div class="focus-accessory" id="focus-accessory" hidden>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('Up')" aria-label="Arrow up">&#x2191;</button>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('Down')" aria-label="Arrow down">&#x2193;</button>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('Enter')">Enter</button>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('Escape')">Esc</button>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('Tab')">Tab</button>
-      <button class="focus-kbd-btn focus-kbd-danger" onclick="peekQuickKeys('C-c')">Ctrl-C</button>
-      <button class="focus-kbd-btn" onclick="peekQuickKeys('C-u')">Ctrl-U</button>
-    </div>
+    <!-- Keyboard accessory: only visible WHEN input is focused.
+         Termius-style: 4-key swipeable group on the left + gray nav cluster on
+         the right. Populated by renderAccessoryGroups() in JS (defaults:
+         Agent/Shell/Tmux/Symbols). Custom groups via Manage sheet, persisted
+         to localStorage "amuxKeyGroups". -->
+    <div class="focus-accessory" id="focus-accessory" hidden></div>
 
     <!-- Voice + attachment chips -->
     <div class="voice-status" id="voice-status"><span id="voice-status-text"></span></div>
@@ -16139,6 +16451,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="focus-sheet-surface" role="dialog" aria-label="Quick actions">
       <div class="focus-sheet-grabber" aria-hidden="true"></div>
       <ul class="focus-sheet-list" id="dock-plus-sheet-list"></ul>
+    </div>
+  </div>
+
+  <!-- Dictation overlay (P1-5) — Web Speech API recording UI -->
+  <div class="dictate-overlay" id="dictate-overlay" data-open="false" aria-hidden="true" role="dialog" aria-label="Dictation">
+    <div class="dictate-card">
+      <div class="dictate-mic-wrap">
+        <span class="dictate-mic-pulse"></span>
+        <span class="dictate-mic-pulse delay"></span>
+        <span class="dictate-mic-core"><i data-lucide="mic"></i></span>
+      </div>
+      <h3 class="dictate-title">Listening…</h3>
+      <div class="dictate-status" id="dictate-status">Speak now. Text appears in the input.</div>
+      <div class="dictate-transcript" id="dictate-transcript" aria-live="polite"></div>
+      <div class="dictate-actions">
+        <button type="button" class="btn-d" onclick="AmuxDictate.cancel()">Cancel</button>
+        <button type="button" class="btn-d stop" onclick="AmuxDictate.stop()">Stop</button>
+      </div>
     </div>
   </div>
 
@@ -21490,41 +21820,110 @@ function _syncPeekOverlayToVisualViewport() {
     if (typeof clearPeekSearch === 'function') clearPeekSearch();
   };
 
-  // ── Edge-swipe-back (mobile) ──
+  // ── Edge-swipe gestures (mobile) ──
+  // LEFT edge → swipe right → closePeek() (back-to-overview)
+  // RIGHT edge → swipe left → next session via cycle through running sessions
+  // Both use a 28px detection zone so they don't fight iOS's own
+  // edge-swipe-back (iOS reserves the leftmost ~20px in PWA mode). Touchmove
+  // tracks horizontal delta and shows a faint chevron hint after ~20px of
+  // travel so the gesture is discoverable.
   (function() {
     const SWIPE_EDGE_PX = 28;
-    const SWIPE_THRESHOLD = 80;
+    const SWIPE_THRESHOLD = 60;   // Δx > 60 commits the gesture
+    const HINT_REVEAL_PX = 20;    // chevron fade-in starts here
+    const Y_TOLERANCE = 40;       // Δy < 40 to count as horizontal
     let start = null;
+    let direction = null;  // 'back' (LEFT edge) | 'next' (RIGHT edge)
     const ov = document.getElementById('peek-overlay');
     if (!ov) return;
+
+    // Lazy-build the two swipe hint chevrons. Pointer-events:none so they
+    // never intercept touches. Opacity is driven by touchmove travel.
+    function _ensureHints() {
+      if (document.getElementById('swipe-hint-back')) return;
+      const mkHint = (id, side, glyph) => {
+        const h = document.createElement('div');
+        h.id = id;
+        h.className = 'swipe-hint swipe-hint--' + side;
+        h.setAttribute('aria-hidden', 'true');
+        h.innerHTML = glyph;
+        ov.appendChild(h);
+        return h;
+      };
+      mkHint('swipe-hint-back', 'left',  '&#x276F;');  // ❯  back
+      mkHint('swipe-hint-next', 'right', '&#x276E;');  // ❮  next
+    }
+    function _setHintOpacity(side, val) {
+      const h = document.getElementById(side === 'left' ? 'swipe-hint-back' : 'swipe-hint-next');
+      if (h) h.style.opacity = String(Math.max(0, Math.min(1, val)));
+    }
+    function _resetHints() {
+      _setHintOpacity('left', 0);
+      _setHintOpacity('right', 0);
+    }
+
+    // Next session in the running list (wraps).
+    function _nextSession() {
+      const list = (window.sessions || []).filter(s => s && s.running);
+      if (!list.length) return null;
+      let i = list.findIndex(s => s.name === peekSession);
+      if (i < 0) i = -1;
+      return list[(i + 1) % list.length];
+    }
+
     ov.addEventListener('touchstart', e => {
       if (!ov.classList.contains('active')) return;
-      const body = document.getElementById('peek-body');
-      // Allow edge swipe even over terminal text
+      // Bail on multi-touch — joystick/two-finger gestures own those.
+      if (e.touches.length > 1) { start = null; direction = null; return; }
+      _ensureHints();
       const t = e.touches[0];
+      const vw = window.innerWidth || document.documentElement.clientWidth || 0;
       if (t.clientX <= SWIPE_EDGE_PX) {
         start = { x: t.clientX, y: t.clientY, t: Date.now() };
+        direction = 'back';
+      } else if (vw && t.clientX >= (vw - SWIPE_EDGE_PX)) {
+        start = { x: t.clientX, y: t.clientY, t: Date.now() };
+        direction = 'next';
       } else {
         start = null;
+        direction = null;
       }
     }, { passive: true });
+
     ov.addEventListener('touchmove', e => {
       if (!start) return;
       const t = e.touches[0];
       const dx = t.clientX - start.x;
       const dy = Math.abs(t.clientY - start.y);
-      if (dy > 30 && dx < 30) { start = null; ov.style.transform = ''; ov.style.transition = ''; return; }
-      if (dx > 0) {
+      // Abort if vertical drift exceeds tolerance (likely a scroll)
+      if (dy > Y_TOLERANCE && Math.abs(dx) < 30) {
+        start = null; direction = null;
+        ov.style.transform = ''; ov.style.transition = '';
+        _resetHints();
+        return;
+      }
+      if (direction === 'back' && dx > 0) {
         ov.style.transition = 'none';
         ov.style.transform = 'translateX(' + dx + 'px)';
+        _setHintOpacity('left', (dx - HINT_REVEAL_PX) / 60);
+      } else if (direction === 'next' && dx < 0) {
+        // Half-distance pull so it reads as a peek, not a hard swipe.
+        ov.style.transition = 'none';
+        ov.style.transform = 'translateX(' + (dx * 0.4) + 'px)';
+        _setHintOpacity('right', (-dx - HINT_REVEAL_PX) / 60);
       }
     }, { passive: true });
+
     ov.addEventListener('touchend', e => {
       if (!start) return;
       const dx = e.changedTouches[0].clientX - start.x;
+      const dy = Math.abs(e.changedTouches[0].clientY - start.y);
+      const dir = direction;
       ov.style.transition = '';
-      if (dx > SWIPE_THRESHOLD) {
-        // Animate off-screen then close
+      _resetHints();
+      const commit = (Math.abs(dx) > SWIPE_THRESHOLD) && (dy < Y_TOLERANCE);
+      if (dir === 'back' && commit && dx > 0) {
+        // Animate off-screen right then close
         if (window.motion && window.AmuxSprings) {
           motion.animate(ov, { x: ['' + dx + 'px', '100%'] }, AmuxSprings.snappy).finished.then(() => {
             ov.style.transform = ''; closePeek();
@@ -21534,7 +21933,19 @@ function _syncPeekOverlayToVisualViewport() {
           ov.style.transform = 'translateX(100%)';
           setTimeout(() => { closePeek(); ov.style.transform = ''; ov.style.transition = ''; }, 280);
         }
+      } else if (dir === 'next' && commit && dx < 0) {
+        // Spring back to 0, then swap to next session in place. openPeek is
+        // fast (<250ms typical) so the transition feels continuous.
+        ov.style.transition = 'transform 0.18s ease-out';
+        ov.style.transform = '';
+        const next = _nextSession();
+        if (next && next.name && next.name !== peekSession) {
+          setTimeout(() => {
+            try { window.openPeek && window.openPeek(next.name); } catch (e) {}
+          }, 40);
+        }
       } else {
+        // Snap back to rest
         if (window.motion && window.AmuxSprings) {
           motion.animate(ov, { x: '0' }, AmuxSprings.snappy).finished.then(() => {
             ov.style.transform = '';
@@ -21545,6 +21956,7 @@ function _syncPeekOverlayToVisualViewport() {
         }
       }
       start = null;
+      direction = null;
     }, { passive: true });
   })();
 
@@ -21811,6 +22223,14 @@ function _syncPeekOverlayToVisualViewport() {
 
     try {
       window._liveTerm = new window.LiveTerminal(body, name);
+      // Broadcast that a live terminal mounted so gesture modules (joystick,
+      // two-finger swipe) can wire touch handlers onto the now-present host.
+      // Fired AFTER the constructor returns (xterm DOM is in place).
+      try {
+        document.dispatchEvent(new CustomEvent('focus-terminal-mounted', {
+          detail: { host: body, name: name, term: window._liveTerm }
+        }));
+      } catch (e) { /* old browser without CustomEvent ctor: skip */ }
       // Focus xterm so keystrokes land immediately. Defer briefly so we don't
       // fight the dock-input autofocus on touch devices.
       setTimeout(() => {
