@@ -11525,44 +11525,49 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .jrnl-sidebar.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
   .jrnl-sidebar-hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .jrnl-search-wrap { padding: 6px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .jrnl-search-wrap input { width: 100%; box-sizing: border-box; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.78rem; font-family: inherit; outline: none; }
-  .jrnl-tags-bar { display: flex; gap: 4px; padding: 6px 10px; overflow-x: auto; flex-wrap: nowrap; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .jrnl-search-wrap input { width: 100%; box-sizing: border-box; padding: var(--s-2) var(--s-3); min-height: 36px; background: var(--bg-tinted); border: 1px solid transparent; border-radius: var(--r-sm); color: var(--label-primary); font-size: var(--text-footnote); font-family: inherit; outline: none; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
+  .jrnl-search-wrap input:focus { background: var(--bg-layer-2); border-color: var(--tint-blue); }
+  .jrnl-search-wrap input::placeholder { color: var(--label-tertiary); }
+  .jrnl-tags-bar { display: flex; gap: var(--s-1); padding: var(--s-2) var(--s-3); overflow-x: auto; flex-wrap: nowrap; border-bottom: 1px solid var(--sep-non-opaque); flex-shrink: 0; }
   .jrnl-tags-bar:empty { display: none; }
-  .jrnl-tag-chip { padding: 2px 8px; font-size: 0.68rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--dim); cursor: pointer; white-space: nowrap; }
-  .jrnl-tag-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .jrnl-tag-chip { padding: 2px var(--s-2); font-size: var(--text-caption1); font-weight: var(--weight-medium); border-radius: var(--r-full); border: 1px solid transparent; background: var(--bg-tinted); color: var(--label-secondary); cursor: pointer; white-space: nowrap; }
+  .jrnl-tag-chip.active { background: var(--tint-blue); color: #fff; border-color: var(--tint-blue); }
   .jrnl-entry-list { flex: 1; overflow-y: auto; }
-  .jrnl-entry-card { padding: 10px 12px; border-bottom: 1px solid rgba(139,148,158,0.1); cursor: pointer; transition: background 0.1s; }
-  .jrnl-entry-card:hover { background: var(--hover); }
-  .jrnl-entry-card.active { background: var(--surface); border-left: 3px solid var(--accent); }
-  .jrnl-entry-date { font-size: 0.68rem; color: var(--dim); margin-bottom: 2px; }
-  .jrnl-entry-preview { font-size: 0.8rem; color: var(--fg); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .jrnl-entry-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
-  .jrnl-entry-meta .loc { font-size: 0.65rem; color: var(--dim); }
-  .jrnl-entry-meta .tag { font-size: 0.6rem; padding: 1px 6px; border-radius: 8px; background: rgba(63,185,80,0.15); color: var(--accent); }
-  .jrnl-entry-meta .media-count { font-size: 0.6rem; color: var(--dim); }
+  .jrnl-entry-card { padding: var(--s-3); border-bottom: 1px solid var(--sep-non-opaque); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard); min-height: 44px; }
+  .jrnl-entry-card:hover { background: var(--bg-tinted); }
+  .jrnl-entry-card.active { background: color-mix(in srgb, var(--tint-blue) 14%, transparent); border-left: 3px solid var(--tint-blue); }
+  .jrnl-entry-date { font-size: var(--text-caption1); color: var(--label-secondary); margin-bottom: 2px; font-weight: var(--weight-medium); }
+  .jrnl-entry-preview { font-size: var(--text-footnote); color: var(--label-primary); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .jrnl-entry-meta { display: flex; gap: var(--s-2); align-items: center; margin-top: var(--s-1); flex-wrap: wrap; }
+  .jrnl-entry-meta .loc { font-size: var(--text-caption2); color: var(--label-tertiary); }
+  .jrnl-entry-meta .tag { font-size: var(--text-caption2); padding: 1px var(--s-2); border-radius: var(--r-xs); background: color-mix(in srgb, var(--tint-green) 18%, transparent); color: var(--tint-green); font-weight: var(--weight-medium); }
+  .jrnl-entry-meta .media-count { font-size: var(--text-caption2); color: var(--label-tertiary); }
   .jrnl-expand-btn { background: transparent; border: none; color: var(--dim); cursor: pointer; padding: 4px; border-radius: 4px; display: none; align-items: center; justify-content: center; flex-shrink: 0; }
   .jrnl-expand-btn:hover { background: rgba(139,148,158,0.12); color: var(--text); }
   #journal-view.sidebar-collapsed .jrnl-expand-btn { display: flex; }
   .jrnl-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .jrnl-sub-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 12px; align-items: center; }
-  .jrnl-sub-tab { padding: 8px 16px; font-size: 0.78rem; background: none; border: none; color: var(--dim); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; }
-  .jrnl-sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .jrnl-sub-tab:hover { color: var(--fg); }
+  .jrnl-sub-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--sep-non-opaque); padding: 0 var(--s-3); align-items: center; }
+  .jrnl-sub-tab { padding: var(--s-2) var(--s-4); min-height: 44px; font-size: var(--text-footnote); font-weight: var(--weight-medium); background: none; border: none; color: var(--label-secondary); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); -webkit-tap-highlight-color: transparent; }
+  .jrnl-sub-tab.active { color: var(--tint-blue); border-bottom-color: var(--tint-blue); font-weight: var(--weight-semibold); }
+  .jrnl-sub-tab:hover { color: var(--label-primary); }
   .jrnl-content { flex: 1; overflow-y: auto; position: relative; }
   /* List/detail editor */
-  .jrnl-editor { padding: 20px 24px; max-width: 720px; }
-  .jrnl-editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--dim); font-size: 0.85rem; }
-  .jrnl-editor label { font-size: 0.72rem; color: var(--dim); display: block; margin-bottom: 4px; margin-top: 14px; }
-  .jrnl-editor textarea { width: 100%; min-height: 100px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.82rem; font-family: inherit; resize: vertical; line-height: 1.5; }
+  .jrnl-editor { padding: var(--s-5) var(--s-6); max-width: 720px; }
+  .jrnl-editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--label-secondary); font-size: var(--text-subhead); }
+  .jrnl-editor label { font-size: var(--text-caption1); color: var(--label-secondary); display: block; margin-bottom: var(--s-1); margin-top: var(--s-4); font-weight: var(--weight-medium); }
+  .jrnl-editor textarea { width: 100%; min-height: 100px; padding: var(--s-3) var(--s-4); background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); color: var(--label-primary); font-size: var(--text-callout); font-family: inherit; resize: vertical; line-height: 1.5; transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+  .jrnl-editor textarea:focus { outline: none; border-color: var(--tint-blue); background: var(--bg-layer-2); }
   .jrnl-editor textarea.prompt-area { min-height: 60px; }
-  .jrnl-editor input[type="text"], .jrnl-editor input[type="date"] { width: 100%; padding: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--fg); font-size: 0.8rem; font-family: inherit; }
-  .jrnl-editor .jrnl-toolbar { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
-  .jrnl-editor .jrnl-toolbar button { padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; cursor: pointer; font-family: inherit; }
-  .jrnl-editor .jrnl-save-btn { background: var(--accent); color: #fff; border: none; font-weight: 600; }
-  .jrnl-editor .jrnl-del-btn { background: none; border: 1px solid var(--border); color: var(--dim); }
-  .jrnl-editor .jrnl-del-btn:hover { border-color: #f85149; color: #f85149; }
-  .jrnl-loc-btn { background: none; border: 1px solid var(--border); color: var(--dim); padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; font-family: inherit; }
-  .jrnl-loc-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .jrnl-editor input[type="text"], .jrnl-editor input[type="date"] { width: 100%; min-height: 44px; padding: var(--s-2) var(--s-3); background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); color: var(--label-primary); font-size: var(--text-callout); font-family: inherit; transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+  .jrnl-editor input[type="text"]:focus, .jrnl-editor input[type="date"]:focus { outline: none; border-color: var(--tint-blue); background: var(--bg-layer-2); }
+  .jrnl-editor .jrnl-toolbar { display: flex; gap: var(--s-2); align-items: center; margin-top: var(--s-4); flex-wrap: wrap; }
+  .jrnl-editor .jrnl-toolbar button { min-height: 36px; padding: 0 var(--s-3); font-size: var(--text-footnote); font-weight: var(--weight-medium); border-radius: var(--r-sm); cursor: pointer; font-family: inherit; transition: background var(--duration-fast) var(--ease-standard); -webkit-tap-highlight-color: transparent; }
+  .jrnl-editor .jrnl-save-btn { background: var(--tint-blue); color: #fff; border: none; font-weight: var(--weight-semibold); }
+  .jrnl-editor .jrnl-save-btn:hover { background: color-mix(in srgb, var(--tint-blue) 88%, white); }
+  .jrnl-editor .jrnl-del-btn { background: var(--bg-tinted); border: none; color: var(--tint-red); }
+  .jrnl-editor .jrnl-del-btn:hover { background: color-mix(in srgb, var(--tint-red) 18%, transparent); }
+  .jrnl-loc-btn { background: var(--bg-tinted); border: none; color: var(--label-secondary); padding: 0 var(--s-3); min-height: 32px; border-radius: var(--r-sm); font-size: var(--text-caption1); font-weight: var(--weight-medium); cursor: pointer; font-family: inherit; transition: background var(--duration-fast) var(--ease-standard); }
+  .jrnl-loc-btn:hover { background: var(--bg-layer-3); color: var(--tint-blue); }
   .jrnl-media-grid { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   .jrnl-media-thumb { width: 80px; height: 80px; border-radius: 6px; object-fit: cover; cursor: pointer; border: 1px solid var(--border); }
   .jrnl-media-upload { width: 80px; height: 80px; border: 2px dashed var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--dim); font-size: 1.2rem; }
@@ -13057,7 +13062,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       <button class="jrnl-sub-tab" data-view="map" onclick="_jrnlSwitchSub('map')">Map</button>
     </div>
     <div class="jrnl-content" id="jrnl-content">
-      <div id="jrnl-list-pane"><div class="jrnl-editor-empty">Select an entry or create a new one</div></div>
+      <div id="jrnl-list-pane"><div class="jrnl-editor-empty" style="flex-direction:column;gap:var(--s-3);"><i data-lucide="book-open" style="width:36px;height:36px;color:var(--label-tertiary);"></i><div>Select an entry or create a new one</div></div></div>
       <div id="jrnl-calendar-pane" style="display:none;"></div>
       <div id="jrnl-media-pane" style="display:none;"></div>
       <div id="jrnl-map-pane" style="display:none;"><div class="jrnl-map-container" id="jrnl-map-container"></div></div>
@@ -33551,23 +33556,38 @@ loadSessions();
                 except Exception: pass
             notes = []
             if CC_NOTES.exists():
+                import re as _re
                 for f in sorted((p for p in CC_NOTES.rglob("*.md") if ".trash" not in p.parts), key=lambda p: -p.stat().st_mtime):
                     rel = str(f.relative_to(CC_NOTES))
                     stat = f.stat()
+                    h1 = ""
+                    preview = ""
                     try:
-                        with open(f, "rb") as _fh: chunk = _fh.read(512).decode("utf-8", errors="replace")
-                        import re as _re
-                        m_html = _re.search(r'<h1[^>]*>(.*?)</h1>', chunk, _re.IGNORECASE)
+                        # Read up to ~1KB to derive title + first-line preview (Apple Notes style).
+                        # Strip HTML tags and the H1 title from preview text so it shows real body content.
+                        with open(f, "rb") as _fh: chunk = _fh.read(1024).decode("utf-8", errors="replace")
+                        m_html = _re.search(r'<h1[^>]*>(.*?)</h1>', chunk, _re.IGNORECASE | _re.DOTALL)
+                        after = chunk
                         if m_html:
                             h1 = _re.sub(r'<[^>]+>', '', m_html.group(1)).strip()
+                            after = chunk[m_html.end():]
                         else:
                             first_line = chunk.split('\n')[0].strip()
-                            h1 = first_line[2:].strip() if first_line.startswith("# ") else ""
+                            if first_line.startswith("# "):
+                                h1 = first_line[2:].strip()
+                                after = '\n'.join(chunk.split('\n')[1:])
+                        # Build plain-text preview: strip tags + markdown punctuation, collapse whitespace.
+                        plain = _re.sub(r'<[^>]+>', ' ', after)
+                        plain = _re.sub(r'[#>\*_`]+', ' ', plain)
+                        plain = _re.sub(r'\s+', ' ', plain).strip()
+                        if plain:
+                            preview = plain[:140]
                     except Exception:
-                        h1 = ""
+                        pass
                     name = h1 or f.stem
                     notes.append({"path": rel, "name": name, "size": stat.st_size,
-                                  "updated": int(stat.st_mtime), "pinned": rel in pins})
+                                  "updated": int(stat.st_mtime), "pinned": rel in pins,
+                                  "preview": preview})
             notes.sort(key=lambda n: (0 if n["pinned"] else 1, -n["updated"]))
             return self._json(notes)
 
