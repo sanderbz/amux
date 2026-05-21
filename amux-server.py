@@ -21474,6 +21474,9 @@ function _syncPeekOverlayToVisualViewport() {
   // a unique name per attempt, the browser never sees a duplicate even if
   // the previous transition's cleanup hasn't fired yet.
   window._vtCounter = window._vtCounter || 0;
+  // In-flight transition guard. A new VT cannot start while another is
+  // animating without producing "duplicate view-transition-name" + "abort".
+  window._vtInFlight = false;
 
   function _clearAllVtTags() {
     try {
@@ -21484,15 +21487,21 @@ function _syncPeekOverlayToVisualViewport() {
   }
 
   function _focusRunVT(fn, cardName) {
-    // 1. Hard-clear EVERY stale view-transition-name before tagging anything
-    //    new. Rapid open/close can leave the old tag set on a card that's
-    //    being re-rendered. Without this, two elements share the same name
-    //    inside startViewTransition() and the browser aborts with
-    //    "Unexpected duplicate view-transition-name".
+    // Hard-clear EVERY stale view-transition-name before tagging anything
+    // new. Rapid open/close can leave the old tag set on a card that's
+    // being re-rendered. Without this, two elements share the same name
+    // inside startViewTransition() and the browser aborts.
     _clearAllVtTags();
 
-    // 2. Tag with a UNIQUE name per attempt so even if cleanup is racing we
-    //    can never collide with the previous transition.
+    // If a transition is already running, skip the VT entirely. The work
+    // still has to happen — we just don't animate it. Stacking VTs is what
+    // produces the duplicate-name console spam + invalid-state abort.
+    if (window._vtInFlight) {
+      fn();
+      return;
+    }
+
+    // Tag with a UNIQUE name per attempt as belt-and-braces.
     const vtName = 'focus-card-' + (++window._vtCounter);
 
     let card = null;
@@ -21511,10 +21520,12 @@ function _syncPeekOverlayToVisualViewport() {
       if (ov) ov.style.viewTransitionName = '';
       // Defensive: also nuke any stragglers (e.g. re-rendered cards).
       _clearAllVtTags();
+      window._vtInFlight = false;
     }
 
     if (!reducedMotion && typeof document.startViewTransition === 'function') {
       let vt;
+      window._vtInFlight = true;
       try {
         vt = document.startViewTransition(() => { fn(); });
       } catch (e) {
