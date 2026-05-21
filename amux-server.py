@@ -14067,6 +14067,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
   /* Mobile (≤600px) — header tightens, tab bar moves to bottom */
   @media (max-width: 600px) {
+    /* Prevent iOS Safari auto-zoom on focus: requires ≥16px font on every
+       user-typeable input. Apply broadly so we don't whack-a-mole. */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select {
+      font-size: max(16px, 1rem);
+    }
     .header-row {
       padding: var(--s-2) var(--s-4);
       gap: var(--s-2);
