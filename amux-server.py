@@ -133,6 +133,7 @@ def _load_or_create_auth_token() -> str:
     return token
 
 AUTH_TOKEN = _load_or_create_auth_token()
+_AMUX_PORT = 8822  # set by main() — direct python listener port (HTTP/1.1)
 
 
 # ── PostHog server-side telemetry ────────────────────────────────────────────
@@ -14210,11 +14211,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   /* Mobile (≤600px) — header tightens, tab bar moves to bottom */
   @media (max-width: 600px) {
     /* Prevent iOS Safari auto-zoom on focus: requires ≥16px font on every
-       user-typeable input. Apply broadly so we don't whack-a-mole. */
+       user-typeable input. Apply broadly + !important to outweigh inline
+       style="font-size:..." declarations sprinkled across modal forms. */
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
     textarea,
     select {
-      font-size: max(16px, 1rem);
+      font-size: max(16px, 1rem) !important;
     }
     .header-row {
       padding: var(--s-2) var(--s-4);
@@ -37440,7 +37442,8 @@ class CCHandler(BaseHTTPRequestHandler):
                 f'window._AMUX_POSTHOG_HOST={_json.dumps(os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"))};'
                 f'window._AMUX_USER_EMAIL={_json.dumps(_user_email)};'
                 f'window._AMUX_USER_ID={_json.dumps(_user_id)};'
-                f'window._AMUX_DEFAULT_MODEL={_json.dumps(_get_default_model())};</script></head>',
+                f'window._AMUX_DEFAULT_MODEL={_json.dumps(_get_default_model())};'
+                f'window._AMUX_SERVER_PORT={_json.dumps(_AMUX_PORT)};</script></head>',
                 1,
             )
             return self._html(page)
@@ -43783,6 +43786,7 @@ def main():
             "restrict, or add a firewall rule on top."
         )
         return
+    global _AMUX_PORT
     port = 8822
     bind_hosts = ["0.0.0.0"]
     _args = sys.argv[1:]
@@ -43797,6 +43801,7 @@ def main():
             _i += 1
         else:
             _i += 1
+    _AMUX_PORT = port
     lan_ip = get_lan_ip()
     no_tls = "--no-tls" in sys.argv
 
