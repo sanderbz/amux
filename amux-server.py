@@ -21396,6 +21396,17 @@ function _syncPeekOverlayToVisualViewport() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function _focusRunVT(fn, cardName) {
+    // Clear any stale view-transition-name from a previous open/close whose
+    // vt.finished.finally hadn't fired yet. Without this, rapid Cmd+K → pick
+    // session A → Esc → Cmd+K → pick session B triggers
+    //   "Unexpected duplicate view-transition-name: focus-card"
+    // and the new transition is aborted with "invalid state".
+    try {
+      document.querySelectorAll('[style*="view-transition-name"]').forEach(el => {
+        el.style.viewTransitionName = '';
+      });
+    } catch (e) {}
+
     // Tag the source card with a view-transition-name so it morphs into the shell
     let card = null;
     if (cardName) {
@@ -21408,16 +21419,29 @@ function _syncPeekOverlayToVisualViewport() {
     const ov = document.getElementById('peek-overlay');
     if (ov) ov.style.viewTransitionName = 'focus-card';
 
-    if (!reducedMotion && typeof document.startViewTransition === 'function') {
-      const vt = document.startViewTransition(() => { fn(); });
-      vt.finished.finally(() => {
-        if (card) card.style.viewTransitionName = '';
-        if (ov) ov.style.viewTransitionName = '';
-      });
-    } else {
-      fn();
+    function _clearTags() {
       if (card) card.style.viewTransitionName = '';
       if (ov) ov.style.viewTransitionName = '';
+    }
+
+    if (!reducedMotion && typeof document.startViewTransition === 'function') {
+      let vt;
+      try {
+        vt = document.startViewTransition(() => { fn(); });
+      } catch (e) {
+        // Aborted/invalid state — run the work synchronously and clean up.
+        _clearTags();
+        fn();
+        return;
+      }
+      // vt.finished resolves when the transition completes; .ready can reject
+      // on abort. Use .finally + .catch on both so we always clear tags.
+      vt.finished.catch(() => {}).finally(_clearTags);
+      // Also guard against the rare case where finally never fires (browser bug).
+      setTimeout(_clearTags, 800);
+    } else {
+      fn();
+      _clearTags();
     }
   }
 
