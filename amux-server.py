@@ -12509,14 +12509,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </div>
 <!-- Scheduler view -->
 <div id="scheduler-view" style="display:none;">
-  <div style="padding:10px 12px 6px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);">
-    <span style="font-weight:600;font-size:0.9rem;">Scheduler</span>
+  <div style="padding:var(--s-3) var(--s-4);display:flex;align-items:center;gap:var(--s-2);border-bottom:1px solid var(--sep-non-opaque);">
+    <span style="font-weight:var(--weight-semibold);font-size:var(--text-headline);color:var(--label-primary);">Scheduler</span>
     <div style="flex:1;"></div>
-    <button class="btn" onclick="openSchedModal()" style="font-size:0.78rem;padding:4px 10px;">+ New Schedule</button>
+    <button class="btn-ios btn-ios-primary" onclick="openSchedModal()" style="min-height:32px;padding:0 var(--s-3);font-size:var(--text-footnote);">
+      <i data-lucide="plus" style="width:14px;height:14px;"></i> New Schedule
+    </button>
   </div>
-  <div id="scheduler-list" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;"></div>
-  <div style="padding:0 12px 12px;">
-    <div style="font-size:0.78rem;font-weight:600;color:var(--dim);padding:8px 0 4px;border-top:1px solid var(--border);">Recent Runs</div>
+  <div id="scheduler-list" style="padding:var(--s-3) var(--s-4);display:flex;flex-direction:column;gap:var(--s-2);overflow-y:auto;"></div>
+  <div style="padding:0 var(--s-4) var(--s-4);">
+    <div style="font-size:var(--text-caption1);font-weight:var(--weight-semibold);color:var(--label-secondary);padding:var(--s-2) 0 var(--s-1);border-top:1px solid var(--sep-non-opaque);">Recent Runs</div>
     <div id="scheduler-runs"></div>
   </div>
 </div>
@@ -23889,10 +23891,10 @@ function renderScheduler() {
 
   // ── Schedule list ─────────────────────────────────────────────────────────
   if (!schedules.length) {
-    listEl.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--dim);">
-      <div style="font-size:2rem;margin-bottom:10px;">⏰</div>
-      <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;color:var(--text);">No schedules yet</div>
-      <div style="font-size:0.82rem;">Create a schedule to run commands in sessions on a recurring timer.</div>
+    listEl.innerHTML = `<div style="text-align:center;padding:var(--s-12) var(--s-5);color:var(--label-secondary);display:flex;flex-direction:column;align-items:center;gap:var(--s-3);">
+      <i data-lucide="clock" style="width:36px;height:36px;color:var(--label-tertiary);"></i>
+      <div style="font-weight:var(--weight-semibold);font-size:var(--text-headline);color:var(--label-primary);">No schedules yet</div>
+      <div style="font-size:var(--text-subhead);max-width:320px;">Create a schedule to run commands in sessions on a recurring timer.</div>
     </div>`;
   } else {
     listEl.innerHTML = schedules.map(s => {
@@ -23900,34 +23902,34 @@ function renderScheduler() {
       const lastRun = s.last_run ? s.last_run.replace('T', ' ') : 'never';
       const recLabel = s.schedule_expr || (s.sched_type === 'once' ? 'once' : (s.recurrence || 'recurring'));
       const dimmed = !s.enabled ? 'opacity:0.5;' : '';
-      return `<div class="card" style="padding:10px 12px;${dimmed}">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <label style="display:flex;align-items:center;cursor:pointer;flex-shrink:0;margin-top:1px;">
+      return `<div class="surface" style="padding:var(--s-3) var(--s-4);${dimmed}">
+        <div style="display:flex;align-items:flex-start;gap:var(--s-3);">
+          <label style="display:flex;align-items:center;cursor:pointer;flex-shrink:0;margin-top:2px;min-height:24px;">
             <input type="checkbox" ${s.enabled ? 'checked' : ''}
               onchange="toggleSchedEnabled('${esc(s.id)}', this.checked)"
-              style="width:auto;accent-color:var(--accent);">
+              style="width:auto;accent-color:var(--tint-blue);">
           </label>
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:0.85rem;">${esc(s.title)} <span style="font-weight:400;font-size:0.68rem;color:var(--dim);user-select:all;">${esc(s.id)}</span></div>
-            <div style="font-size:0.72rem;color:var(--dim);margin-top:2px;">
-              <span style="color:var(--accent);">${esc(s.session)}</span>
-              &nbsp;·&nbsp;<code style="font-size:0.7rem;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:0 3px;">${esc(s.command.length > 60 ? s.command.slice(0,60) + '…' : s.command)}</code>
+            <div style="font-weight:var(--weight-semibold);font-size:var(--text-subhead);color:var(--label-primary);">${esc(s.title)} <span style="font-weight:var(--weight-regular);font-size:var(--text-caption2);color:var(--label-tertiary);user-select:all;">${esc(s.id)}</span></div>
+            <div style="font-size:var(--text-caption1);color:var(--label-secondary);margin-top:2px;">
+              <span style="color:var(--tint-blue);">${esc(s.session)}</span>
+              &nbsp;·&nbsp;<code style="font-size:var(--text-caption1);background:var(--bg-tinted);border-radius:var(--r-xs);padding:1px 4px;font-family:var(--font-mono);">${esc(s.command.length > 60 ? s.command.slice(0,60) + '…' : s.command)}</code>
             </div>
-            <div style="font-size:0.7rem;color:var(--dim);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap;">
-              <span>🔁 ${esc(recLabel)}</span>
-              <span>▶ next: <strong style="color:var(--text);">${esc(nextRun)}</strong></span>
-              <span>✓ last: ${esc(lastRun)}</span>
-              <span>runs: <strong>${s.run_count || 0}</strong></span>
-              ${s.watch ? `<span style="color:var(--accent);">👁 watching</span>` : ''}
-              ${s.done_pattern ? `<span style="color:var(--dim);">stop: <code style="font-size:0.65rem;">${esc(s.done_pattern)}</code></span>` : ''}
+            <div style="font-size:var(--text-caption1);color:var(--label-secondary);margin-top:var(--s-2);display:flex;gap:var(--s-3);flex-wrap:wrap;align-items:center;">
+              <span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="repeat" style="width:11px;height:11px;"></i> ${esc(recLabel)}</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="play" style="width:11px;height:11px;"></i> next: <strong style="color:var(--label-primary);font-weight:var(--weight-semibold);">${esc(nextRun)}</strong></span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="check" style="width:11px;height:11px;"></i> last: ${esc(lastRun)}</span>
+              <span>runs: <strong style="color:var(--label-primary);">${s.run_count || 0}</strong></span>
+              ${s.watch ? `<span class="chip-ios chip-ios-info" style="display:inline-flex;align-items:center;gap:3px;"><i data-lucide="eye" style="width:11px;height:11px;"></i> watching</span>` : ''}
+              ${s.done_pattern ? `<span style="color:var(--label-tertiary);">stop: <code style="font-size:var(--text-caption2);font-family:var(--font-mono);">${esc(s.done_pattern)}</code></span>` : ''}
             </div>
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-              <button class="btn" style="font-size:0.72rem;padding:4px 12px;"
-                onclick="runScheduleNow('${esc(s.id)}')">Run Now</button>
-              <button class="btn" style="font-size:0.72rem;padding:4px 12px;"
-                onclick="openSchedModal('${esc(s.id)}')">Edit</button>
-              <button class="btn" style="font-size:0.72rem;padding:4px 12px;color:var(--red);"
-                onclick="deleteSchedule('${esc(s.id)}')">Delete</button>
+            <div style="display:flex;gap:var(--s-2);margin-top:var(--s-3);flex-wrap:wrap;">
+              <button class="btn-ios" style="min-height:32px;padding:0 var(--s-3);font-size:var(--text-footnote);"
+                onclick="runScheduleNow('${esc(s.id)}')"><i data-lucide="play" style="width:13px;height:13px;"></i> Run Now</button>
+              <button class="btn-ios" style="min-height:32px;padding:0 var(--s-3);font-size:var(--text-footnote);"
+                onclick="openSchedModal('${esc(s.id)}')"><i data-lucide="pencil" style="width:13px;height:13px;"></i> Edit</button>
+              <button class="btn-ios btn-ios-destructive" style="min-height:32px;padding:0 var(--s-3);font-size:var(--text-footnote);"
+                onclick="deleteSchedule('${esc(s.id)}')"><i data-lucide="trash-2" style="width:13px;height:13px;"></i> Delete</button>
             </div>
           </div>
         </div>
@@ -23937,19 +23939,20 @@ function renderScheduler() {
 
   // ── Recent runs ───────────────────────────────────────────────────────────
   if (!_schedulerRuns.length) {
-    runsEl.innerHTML = `<div style="color:var(--dim);font-size:0.78rem;padding:4px 0;">No runs recorded yet.</div>`;
+    runsEl.innerHTML = `<div style="color:var(--label-tertiary);font-size:var(--text-footnote);padding:var(--s-2) 0;">No runs recorded yet.</div>`;
   } else {
     runsEl.innerHTML = _schedulerRuns.slice(0, 30).map(r => {
       const ts = r.ran_at ? new Date(r.ran_at * 1000).toLocaleString() : '?';
-      const okColor = r.status === 'ok' ? 'var(--green,#4ade80)' : 'var(--red)';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.75rem;">
-        <span style="color:${okColor};font-weight:600;min-width:38px;">${esc(r.status)}</span>
-        <span style="color:var(--dim);min-width:140px;">${esc(ts)}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.title || r.schedule_id)}</span>
-        ${r.note ? `<span style="color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.note)}">${esc(r.note)}</span>` : ''}
+      const chipClass = r.status === 'ok' ? 'chip-ios chip-ios-success' : 'chip-ios chip-ios-danger';
+      return `<div style="display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) 0;border-bottom:1px solid var(--sep-non-opaque);font-size:var(--text-footnote);">
+        <span class="${chipClass}" style="min-width:42px;text-align:center;">${esc(r.status)}</span>
+        <span style="color:var(--label-secondary);min-width:140px;font-variant-numeric:tabular-nums;">${esc(ts)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--label-primary);">${esc(r.title || r.schedule_id)}</span>
+        ${r.note ? `<span style="color:var(--tint-red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.note)}">${esc(r.note)}</span>` : ''}
       </div>`;
     }).join('');
   }
+  try { window.lucide && lucide.createIcons && lucide.createIcons(); } catch(e) {}
 }
 
 async function runScheduleNow(id) {
