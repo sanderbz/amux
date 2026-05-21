@@ -9903,6 +9903,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     body[data-focus-mode="true"] #board-view,
     body[data-focus-mode="true"] #files-view { visibility: hidden; }
   }
+  /* Mobile-only: also hide the chrome-tabs-bar (Tab 1 / + power-user
+     affordance) when focus mode is open. The sheet/full-takeover already
+     occupies the screen — leaving the tab bar at top eats 36px of viewport
+     and makes the sheet look like it's docked under a foreign chrome. */
+  @media (max-width: 600px) {
+    body[data-focus-mode="true"] #chrome-tabs-bar,
+    body[data-focus-mode="true"] .chrome-tabs-bar { display: none !important; }
+  }
 
   /* ── 44pt header ── */
   .focus-header {
