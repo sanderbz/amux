@@ -14279,9 +14279,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     body { padding-bottom: max(72px, calc(64px + env(safe-area-inset-bottom))); }
 
     #session-view .sv-search-row { padding: 0 var(--s-3); }
-    #session-view #cards .board-session-header {
-      top: calc(var(--sticky-nav-top, 64px) + 8px);
-    }
+    /* sticky was removed from .board-session-header on desktop
+       (position:relative now). The previous mobile `top:` override
+       displaced the header ~72px down, landing on the first card's
+       dir-path row. Leave intentionally empty. */
   }
 
   /* Bottom tab bar (mobile only) */
