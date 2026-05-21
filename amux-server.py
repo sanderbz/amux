@@ -8000,12 +8000,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0d1117; --card: #161b22; --border: #30363d;
-    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
-    --green: #3fb950; --red: #f85149; --yellow: #d29922;
-    --cyan: #39d2c0;
-  }
+  /* Legacy GitHub-dark :root removed — aliases now live in the new system below. */
   /* ════════════════════════════════════════════════════════════════════════
      APPLE-GRADE DESIGN TOKENS (Wave 0 foundation)
      iOS 18 / macOS Tahoe aligned. See DESIGN_SPEC.md for usage rules.
@@ -8086,6 +8081,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --z-base: 0; --z-elevated: 10; --z-sticky: 100;
     --z-modal-backdrop: 900; --z-modal: 1000;
     --z-toast: 1100; --z-tooltip: 1200;
+    /* ── Legacy aliases — point all legacy tokens at the new system.
+           This kills the dual-system fight on the overview. ── */
+    --bg:     var(--bg-base);
+    --card:   var(--bg-layer-1);
+    --border: var(--sep-non-opaque);
+    --text:   var(--label-primary);
+    --text2:  var(--label-secondary);
+    --dim:    var(--label-tertiary);
+    --muted:  var(--label-tertiary);
+    --accent: var(--tint-blue);
+    --green:  var(--tint-green);
+    --red:    var(--tint-red);
+    --yellow: var(--tint-orange);
+    --cyan:   var(--tint-teal);
   }
   body.light {
     --bg-base:    #ffffff;
@@ -8183,12 +8192,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   /* ════════════════════════════════════════════════════════════════════════
      END Wave 0 foundation
      ════════════════════════════════════════════════════════════════════════ */
-  body.light {
-    --bg: #ffffff; --card: #f6f8fa; --border: #d0d7de;
-    --text: #1f2328; --dim: #656d76; --accent: #0969da;
-    --green: #1a7f37; --red: #cf222e; --yellow: #9a6700;
-    --cyan: #0550ae;
-  }
+  /* Legacy body.light overrides removed — light-mode tokens now derive from
+     the Apple-grade body.light block above via the legacy aliases. */
   body.light .board-sortable-ghost { background: rgba(9,105,218,0.08) !important; }
   body.light .log-line { filter: none; }
   /* ── Light mode contrast fixes ── */
@@ -37426,7 +37431,11 @@ class CCHandler(BaseHTTPRequestHandler):
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
+  html, body {
+    height: 100%;
+    /* Prevent accidental pull-to-refresh — it reloads the page and kills SSE */
+    overscroll-behavior-y: contain;
+  }
   body {
     margin: 0;
     font-family: var(--font-sans);
