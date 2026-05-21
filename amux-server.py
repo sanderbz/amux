@@ -8478,7 +8478,23 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
   }
   body.light .card-mini-term { background: #1c2128; color: #cdd9e5; }
-  .card-mini-term-body { display: block; pointer-events: none; }
+  .card-mini-term-body {
+    display: block; pointer-events: none;
+    width: 100%; max-width: 100%;
+    overflow: hidden;
+    white-space: pre;
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+  }
+  @media (max-width: 600px) {
+    /* On phone, prefer wrap so we never clip semantic content */
+    .card-mini-term-body {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      -webkit-mask-image: none; mask-image: none;
+    }
+  }
   .card-mini-term[data-empty="1"]::after {
     content: "(no output yet)";
     position: absolute; inset: 50% 0 auto 0;
