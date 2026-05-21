@@ -10376,20 +10376,56 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     max-width: 60%;
   }
 
-  /* Keyboard accessory row (above input, only when input is focused) */
+  /* Keyboard accessory row (above input, only when input is focused).
+     Termius-style: a 4-key swipeable lane on the left + a fixed gray nav
+     cluster on the right. Total height ≈ 44pt — fits above the dock without
+     growing the chrome. */
   .focus-accessory {
-    display: flex; gap: var(--s-2); overflow-x: auto;
-    scrollbar-width: none; -ms-overflow-style: none;
+    display: flex; gap: var(--s-2);
     padding: var(--s-1) 0;
     margin-bottom: 0;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    scroll-padding-right: 16px;
-    /* Fade-mask on the right edge as a hint that more is scrollable */
-    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
-            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
+    align-items: center;
   }
-  .focus-accessory::-webkit-scrollbar { display: none; }
+  /* Swipe lane — 4 white function keys, evenly distributed. touch-action
+     pan-y so vertical scrolls still pass through; horizontal swipes are
+     captured by the lane handler to cycle groups. */
+  .acc-lane {
+    display: flex; gap: var(--s-2);
+    flex: 1 1 auto; min-width: 0;
+    touch-action: pan-y;
+  }
+  .acc-lane .focus-kbd-btn {
+    flex: 1 1 0; min-width: 0;
+    padding: 0 var(--s-2);
+  }
+  /* Right nav cluster — gray (less prominent), separator from white lane,
+     houses prev/next group + Manage (···) buttons. */
+  .acc-nav {
+    display: flex; gap: var(--s-1);
+    flex-shrink: 0;
+    padding-left: var(--s-2);
+    margin-left: var(--s-1);
+    border-left: 1px solid var(--sep-non-opaque);
+    align-items: center;
+  }
+  .focus-kbd-nav {
+    height: 36px; min-width: 36px;
+    padding: 0 var(--s-2);
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--label-secondary);
+    font: var(--weight-semibold) var(--text-caption1) var(--font-sans);
+    display: inline-grid; place-items: center;
+    cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard);
+  }
+  .focus-kbd-nav:hover { background: var(--bg-tinted); color: var(--label-primary); }
+  .focus-kbd-nav:active { background: var(--bg-layer-3); transform: scale(0.94); }
+  .focus-kbd-nav i[data-lucide] { width: 18px; height: 18px; }
   .focus-kbd-btn {
     flex: 0 0 auto;
     height: 44px; min-width: 44px;
@@ -10399,7 +10435,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: var(--bg-layer-2);
     color: var(--label-primary);
     font: var(--weight-semibold) var(--text-caption1) var(--font-mono);
-    scroll-snap-align: start;
     cursor: pointer; user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: background var(--duration-fast) var(--ease-standard),
@@ -10408,6 +10443,165 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .focus-kbd-btn:hover { background: var(--bg-layer-3); }
   .focus-kbd-btn:active { transform: scale(0.94); background: var(--bg-tinted); }
   .focus-kbd-btn.focus-kbd-danger { color: var(--tint-red); }
+  /* Sub-380px polish — keep all 4 keys + nav buttons within frame. */
+  @media (max-width: 380px) {
+    .acc-lane { gap: var(--s-1); }
+    .acc-lane .focus-kbd-btn { padding: 0 var(--s-1); }
+    .focus-kbd-nav { min-width: 32px; padding: 0 var(--s-1); }
+  }
+
+  /* ── Key Groups (Manage) sheet ── */
+  .key-group-row {
+    display: flex; align-items: center; gap: var(--s-2);
+    min-height: 56px; padding: 0 var(--s-3);
+    border-radius: var(--r-sm);
+    color: var(--label-primary);
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-instant) var(--ease-standard);
+  }
+  .key-group-row:hover { background: var(--bg-tinted); }
+  .key-group-row .kg-handle {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    color: var(--label-tertiary);
+    flex-shrink: 0; cursor: grab;
+  }
+  .key-group-row .kg-handle i[data-lucide] { width: 18px; height: 18px; }
+  .key-group-row .kg-remove {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    color: var(--tint-red);
+    background: color-mix(in srgb, var(--tint-red) 14%, transparent);
+    border: 0; border-radius: 50%;
+    flex-shrink: 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key-group-row .kg-remove i[data-lucide] { width: 16px; height: 16px; }
+  .key-group-row .kg-body {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 2px;
+    cursor: pointer;
+  }
+  .key-group-row .kg-name {
+    font: var(--weight-semibold) var(--text-body) var(--font-sans);
+    color: var(--label-primary);
+  }
+  .key-group-row .kg-preview {
+    font: var(--weight-regular) var(--text-caption1) var(--font-mono);
+    color: var(--label-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .key-group-row .kg-chevron {
+    color: var(--label-tertiary);
+    flex-shrink: 0;
+  }
+  .key-group-row .kg-chevron i[data-lucide] { width: 18px; height: 18px; }
+
+  /* Group editor (4-slot key picker per group) */
+  .kg-editor {
+    padding: var(--s-3) var(--s-4);
+    display: flex; flex-direction: column; gap: var(--s-3);
+  }
+  .kg-editor-name {
+    width: 100%; min-height: 44px;
+    padding: var(--s-2) var(--s-3);
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    color: var(--label-primary);
+    font: var(--text-body) var(--font-sans);
+  }
+  .kg-editor-name:focus { outline: none; border-color: var(--tint-blue); }
+  .kg-slots {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-2);
+  }
+  .kg-slot {
+    min-height: 56px;
+    padding: var(--s-2);
+    border: 1px dashed var(--sep-non-opaque);
+    border-radius: var(--r-sm);
+    background: var(--bg-layer-1);
+    color: var(--label-primary);
+    font: var(--weight-semibold) var(--text-caption1) var(--font-mono);
+    display: grid; place-items: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-align: center; word-break: break-all;
+  }
+  .kg-slot.filled { border-style: solid; background: var(--bg-layer-2); }
+  .kg-slot:active { transform: scale(0.96); }
+  .kg-editor-actions {
+    display: flex; gap: var(--s-2); justify-content: flex-end;
+    padding-top: var(--s-2);
+    border-top: 1px solid var(--sep-non-opaque);
+  }
+
+  /* Key picker dialog (tabs: Special / Modifiers / Literal) */
+  .kg-picker {
+    display: flex; flex-direction: column; gap: var(--s-3);
+    padding: 0 var(--s-3);
+  }
+  .kg-picker-tabs {
+    display: flex; gap: var(--s-1);
+    padding: var(--s-1);
+    background: var(--bg-tinted);
+    border-radius: var(--r-sm);
+  }
+  .kg-picker-tab {
+    flex: 1; min-height: 36px;
+    border: 0; border-radius: calc(var(--r-sm) - 2px);
+    background: transparent;
+    color: var(--label-secondary);
+    font: var(--weight-semibold) var(--text-caption1) var(--font-sans);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+  .kg-picker-tab.active {
+    background: var(--bg-layer-2);
+    color: var(--label-primary);
+  }
+  .kg-picker-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: var(--s-2);
+    max-height: 50dvh; overflow-y: auto;
+  }
+  .kg-picker-chip {
+    min-height: 44px;
+    padding: var(--s-1) var(--s-2);
+    border: 0; border-radius: var(--r-sm);
+    background: var(--bg-layer-2);
+    color: var(--label-primary);
+    font: var(--weight-semibold) var(--text-caption1) var(--font-mono);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .kg-picker-chip:hover { background: var(--bg-layer-3); }
+  .kg-picker-chip.danger { color: var(--tint-red); }
+  .kg-picker-literal {
+    width: 100%; min-height: 44px;
+    padding: var(--s-2) var(--s-3);
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    color: var(--label-primary);
+    font: var(--text-body) var(--font-mono);
+  }
+  .kg-picker-literal:focus { outline: none; border-color: var(--tint-blue); }
+  .kg-add-row {
+    display: flex; gap: var(--s-2); padding: var(--s-2) var(--s-3);
+  }
+  .kg-add-row button {
+    flex: 1; min-height: 44px;
+    border: 0; border-radius: var(--r-sm);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    font: var(--weight-semibold) var(--text-callout) var(--font-sans);
+  }
+  .kg-add-btn { background: var(--tint-blue); color: white; }
+  .kg-add-btn:active { transform: scale(0.97); }
+  .kg-reset-btn { background: var(--bg-tinted); color: var(--label-secondary); }
 
   /* Input row — Claude/Messages pattern */
   .dock-input-row {
@@ -16530,6 +16724,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <div class="focus-sheet-surface" role="dialog" aria-label="Quick actions">
       <div class="focus-sheet-grabber" aria-hidden="true"></div>
       <ul class="focus-sheet-list" id="dock-plus-sheet-list"></ul>
+    </div>
+  </div>
+
+  <!-- Bottom sheet: Manage Key Groups (opened by ··· in accessory bar).
+       Contents (list, edit-group, key-picker) rendered into #key-groups-sheet-body
+       by renderKeyGroupsSheet() — a single surface that swaps sub-views. -->
+  <div class="focus-sheet" id="key-groups-sheet" data-state="closed" aria-hidden="true">
+    <div class="focus-sheet-backdrop" onclick="closeKeyGroupsSheet()"></div>
+    <div class="focus-sheet-surface" role="dialog" aria-label="Manage key groups">
+      <div class="focus-sheet-grabber" aria-hidden="true"></div>
+      <div id="key-groups-sheet-body"></div>
     </div>
   </div>
 
