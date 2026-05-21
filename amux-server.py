@@ -21024,6 +21024,366 @@ function _syncPeekOverlayToVisualViewport() {
   }
 })();
 
+// ═════════════════════════════════════════════════════════════════════════
+// ──  iOS DRAG-DETENT SHEET — mobile focus mode (Apple Maps / Now Playing)
+//
+//  Replaces the full-screen takeover on ≤768px with a draggable bottom
+//  sheet that snaps between three detents: peek (30vh) / half (60vh) /
+//  full (100vh-minus-safe-area). Velocity-based snap, rubber-band beyond
+//  bounds, backdrop fades in past peek, tap the backdrop to collapse,
+//  swipe-down at peek dismisses, typing auto-promotes to full.
+//
+//  Coexists with the edge-swipe-back gesture (different start-X regions:
+//  edge-swipe starts in the left 28px, the sheet grabber only consumes
+//  events that start inside the grabber element).
+//  Coexists with _dockSyncKeyboard (visualViewport sync still drives the
+//  dock-above-keyboard translate at the full detent).
+// ═════════════════════════════════════════════════════════════════════════
+(function() {
+  const SHEET_BREAKPOINT = 768;
+  const isMobile = () => window.innerWidth <= SHEET_BREAKPOINT;
+  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Detent fractions of viewport height: peek / half / full.
+  // Full uses 1.0 but JS subtracts safe-area-top so the sheet doesn't
+  // overlap the iOS notch — the surface still rounds at the top.
+  const DETENTS = [0.30, 0.60, 1.0];
+  const DETENT_NAMES = ['peek', 'half', 'full'];
+
+  class IosSheet {
+    constructor(el) {
+      this.el = el;
+      this.detents = DETENTS.slice();
+      this.currentDetent = 0;  // start at peek
+      this.viewportH = window.innerHeight;
+      this._dragging = false;
+      this._backdrop = null;
+      this._setupDOM();
+      this._wireDrag();
+      this._wireBackdropTap();
+      this._wireResize();
+    }
+
+    _setupDOM() {
+      // Grabber pill — prepended into the focus-shell, sits above .focus-header
+      if (!this.el.querySelector(':scope > .sheet-grabber')) {
+        const grabber = document.createElement('div');
+        grabber.className = 'sheet-grabber';
+        grabber.setAttribute('role', 'slider');
+        grabber.setAttribute('aria-label', 'Sheet drag handle');
+        grabber.setAttribute('aria-valuemin', '0');
+        grabber.setAttribute('aria-valuemax', '2');
+        grabber.setAttribute('aria-valuenow', String(this.currentDetent));
+        this.el.prepend(grabber);
+      }
+      // Shared backdrop element — one for the document
+      let bd = document.querySelector('.sheet-backdrop');
+      if (!bd) {
+        bd = document.createElement('div');
+        bd.className = 'sheet-backdrop';
+        bd.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(bd);
+      }
+      this._backdrop = bd;
+    }
+
+    _safeAreaTop() {
+      try {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);visibility:hidden';
+        document.body.appendChild(probe);
+        const v = probe.getBoundingClientRect().top;
+        probe.remove();
+        return Math.max(0, v);
+      } catch (e) { return 0; }
+    }
+
+    _detentHeight(idx) {
+      const fraction = this.detents[idx];
+      let h = this.viewportH * fraction;
+      if (idx === this.detents.length - 1) {
+        // Full detent: leave room for the notch / safe-area-top so the
+        // rounded corners + grabber stay visible.
+        const topInset = this._safeAreaTop();
+        h = Math.max(0, this.viewportH - topInset);
+      }
+      return h;
+    }
+
+    _setHeight(h, anim) {
+      const grabber = this.el.querySelector(':scope > .sheet-grabber');
+      if (grabber) grabber.setAttribute('aria-valuenow', String(this.currentDetent));
+      if (anim && !reducedMotion() && window.motion && window.AmuxSprings) {
+        window.motion.animate(this.el, { height: h + 'px' }, window.AmuxSprings.snappy);
+      } else {
+        this.el.style.height = h + 'px';
+      }
+    }
+
+    _setBackdropOpacity(fraction, anim) {
+      if (!this._backdrop) return;
+      // Backdrop starts fading in past peek; fully visible (~0.55) at full.
+      const peek = this.detents[0];
+      const span = 1.0 - peek;
+      const t = Math.max(0, Math.min(1, (fraction - peek) / span));
+      const targetOpacity = t * 0.55;
+      const visible = targetOpacity > 0.02;
+      this._backdrop.classList.toggle('visible', visible);
+      if (anim && !reducedMotion() && window.motion && window.AmuxSprings) {
+        window.motion.animate(this._backdrop, { opacity: targetOpacity }, window.AmuxSprings.smooth);
+      } else {
+        this._backdrop.style.opacity = String(targetOpacity);
+      }
+    }
+
+    _syncBodyAttr() {
+      const name = DETENT_NAMES[this.currentDetent] || 'peek';
+      document.body.setAttribute('data-focus-sheet', name);
+      this.el.classList.toggle('ios-sheet--peek', this.currentDetent === 0);
+      this.el.classList.toggle('ios-sheet--half', this.currentDetent === 1);
+      this.el.classList.toggle('ios-sheet--full', this.currentDetent === 2);
+    }
+
+    setDetent(idx, anim) {
+      if (typeof anim === 'undefined') anim = true;
+      idx = Math.max(0, Math.min(idx, this.detents.length - 1));
+      this.currentDetent = idx;
+      const h = this._detentHeight(idx);
+      const fraction = h / this.viewportH;
+      this._setHeight(h, anim);
+      this._setBackdropOpacity(fraction, anim);
+      this._syncBodyAttr();
+      // The dock's keyboard offset depends on viewport vs layout height —
+      // re-sync after detent change so the input + dock stay positioned.
+      setTimeout(() => {
+        try { window._dockSyncKeyboard && window._dockSyncKeyboard(); } catch (e) {}
+      }, 16);
+    }
+
+    dismiss() {
+      // Swipe-down at peek → close focus mode entirely
+      try { window.closePeek && window.closePeek(); } catch (e) {}
+    }
+
+    _wireDrag() {
+      const grabber = this.el.querySelector(':scope > .sheet-grabber');
+      if (!grabber) return;
+      let startY = 0, startH = 0, startTime = 0;
+      let lastY = 0, lastTime = 0;
+      let activePointer = null;
+
+      const onStart = (y) => {
+        if (!isMobile()) return false;
+        startY = y;
+        startH = this.el.offsetHeight;
+        startTime = performance.now();
+        lastY = y;
+        lastTime = startTime;
+        this._dragging = true;
+        this.el.style.transition = 'none';
+        return true;
+      };
+
+      const onMove = (y) => {
+        if (!this._dragging) return;
+        const dy = startY - y;  // drag up = positive
+        let newH = startH + dy;
+        const maxH = this._detentHeight(this.detents.length - 1);
+        const minH = this._detentHeight(0);
+        // Rubber-band beyond bounds (Apple-style).
+        if (newH > maxH) newH = maxH + (newH - maxH) * 0.3;
+        if (newH < minH) newH = minH - (minH - newH) * 0.45;
+        newH = Math.max(40, newH);
+        this.el.style.height = newH + 'px';
+        this._setBackdropOpacity(newH / this.viewportH, false);
+        lastTime = performance.now();
+        lastY = y;
+      };
+
+      const onEnd = () => {
+        if (!this._dragging) return;
+        this._dragging = false;
+        const totalDt = performance.now() - startTime + 1;
+        const velocity = (startY - lastY) / totalDt;  // px/ms, positive = up
+        const currentH = this.el.offsetHeight;
+        const minH = this._detentHeight(0);
+        // Released well below peek (or strong downward flick near peek) → dismiss
+        if (currentH < minH * 0.7 || (currentH < minH * 0.95 && velocity < -0.6)) {
+          this.dismiss();
+          return;
+        }
+        let targetIdx;
+        if (Math.abs(velocity) > 0.5) {
+          const dir = velocity > 0 ? 1 : -1;
+          targetIdx = this.currentDetent + dir;
+        } else {
+          let best = 0, bestDist = Infinity;
+          this.detents.forEach((d, i) => {
+            const detH = this._detentHeight(i);
+            const dist = Math.abs(currentH - detH);
+            if (dist < bestDist) { bestDist = dist; best = i; }
+          });
+          targetIdx = best;
+        }
+        this.setDetent(targetIdx);
+      };
+
+      if (window.PointerEvent) {
+        grabber.addEventListener('pointerdown', (e) => {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          if (!onStart(e.clientY)) return;
+          activePointer = e.pointerId;
+          try { grabber.setPointerCapture(e.pointerId); } catch (_) {}
+          e.preventDefault();
+        });
+        grabber.addEventListener('pointermove', (e) => {
+          if (activePointer !== e.pointerId) return;
+          onMove(e.clientY);
+          e.preventDefault();
+        });
+        const endPointer = (e) => {
+          if (activePointer !== e.pointerId) return;
+          try { grabber.releasePointerCapture(e.pointerId); } catch (_) {}
+          activePointer = null;
+          onEnd();
+        };
+        grabber.addEventListener('pointerup', endPointer);
+        grabber.addEventListener('pointercancel', endPointer);
+      } else {
+        grabber.addEventListener('touchstart', (e) => {
+          onStart(e.touches[0].clientY);
+        }, { passive: true });
+        grabber.addEventListener('touchmove', (e) => {
+          onMove(e.touches[0].clientY);
+          e.preventDefault();
+        }, { passive: false });
+        grabber.addEventListener('touchend', onEnd);
+        grabber.addEventListener('touchcancel', onEnd);
+        grabber.addEventListener('mousedown', (e) => {
+          if (!onStart(e.clientY)) return;
+          const mm = (ev) => onMove(ev.clientY);
+          const mu = () => {
+            onEnd();
+            document.removeEventListener('mousemove', mm);
+            document.removeEventListener('mouseup', mu);
+          };
+          document.addEventListener('mousemove', mm);
+          document.addEventListener('mouseup', mu);
+        });
+      }
+    }
+
+    _wireBackdropTap() {
+      if (!this._backdrop) return;
+      this._backdrop.addEventListener('click', () => {
+        if (!isMobile()) return;
+        this.setDetent(0);
+      });
+    }
+
+    _wireResize() {
+      window.addEventListener('resize', () => {
+        this.viewportH = window.innerHeight;
+        if (isMobile() && this.el.classList.contains('ios-sheet')) {
+          this.setDetent(this.currentDetent, false);
+        }
+      });
+    }
+  }
+
+  // Singleton — one sheet controller for the dashboard
+  let _sheet = null;
+  function _getSheet() {
+    const ov = document.getElementById('peek-overlay');
+    if (!ov) return null;
+    if (!_sheet) _sheet = new IosSheet(ov);
+    return _sheet;
+  }
+  window._iosSheet = _getSheet;
+
+  function _activateSheet() {
+    if (!isMobile()) return;
+    const ov = document.getElementById('peek-overlay');
+    if (!ov) return;
+    const wasOpen = ov.classList.contains('ios-sheet');
+    ov.classList.add('ios-sheet');
+    const sheet = _getSheet();
+    if (!sheet) return;
+    sheet.viewportH = window.innerHeight;
+    if (wasOpen) {
+      // Sheet was already open (e.g. user tapped another session card to
+      // switch). Preserve their drag position — Apple Music Now Playing.
+      sheet.setDetent(sheet.currentDetent, true);
+      return;
+    }
+    const inp = document.getElementById('peek-cmd-input');
+    const startIdx = (document.activeElement === inp) ? 2 : 0;
+    sheet.setDetent(startIdx, false);
+  }
+
+  function _deactivateSheet() {
+    const ov = document.getElementById('peek-overlay');
+    if (!ov) return;
+    ov.classList.remove('ios-sheet', 'ios-sheet--peek', 'ios-sheet--half', 'ios-sheet--full');
+    ov.style.height = '';
+    document.body.removeAttribute('data-focus-sheet');
+    const bd = document.querySelector('.sheet-backdrop');
+    if (bd) {
+      bd.style.opacity = '';
+      bd.classList.remove('visible');
+    }
+  }
+
+  // ── Wrap openPeek / closePeek to drive the sheet on mobile ──
+  (function patchPeek() {
+    const _open = window.openPeek;
+    const _close = window.closePeek;
+    if (typeof _open === 'function') {
+      window.openPeek = function(name, opts) {
+        const r = _open.apply(this, arguments);
+        // Defer so the overlay has the .active class set + transitions finished
+        setTimeout(_activateSheet, 0);
+        return r;
+      };
+    }
+    if (typeof _close === 'function') {
+      window.closePeek = function() {
+        _deactivateSheet();
+        return _close.apply(this, arguments);
+      };
+    }
+  })();
+
+  // ── Auto-promote to full when the user focuses the input ──
+  document.addEventListener('focusin', (e) => {
+    if (!isMobile()) return;
+    if (e.target && e.target.id === 'peek-cmd-input') {
+      const sheet = _getSheet();
+      if (sheet && sheet.currentDetent < 2) sheet.setDetent(2);
+    }
+  });
+
+  // ── Viewport-cross-the-breakpoint: rotating / resizing across 768px
+  //    must not leave the sheet in a broken hybrid state.
+  window.addEventListener('resize', () => {
+    const ov = document.getElementById('peek-overlay');
+    if (!ov) return;
+    if (!isMobile()) {
+      if (ov.classList.contains('ios-sheet')) {
+        ov.classList.remove('ios-sheet', 'ios-sheet--peek', 'ios-sheet--half', 'ios-sheet--full');
+        ov.style.height = '';
+        document.body.removeAttribute('data-focus-sheet');
+        const bd = document.querySelector('.sheet-backdrop');
+        if (bd) { bd.style.opacity = ''; bd.classList.remove('visible'); }
+      }
+    } else {
+      if (ov.classList.contains('active') && !ov.classList.contains('ios-sheet')) {
+        _activateSheet();
+      }
+    }
+  });
+})();
+
 // ── Initial dock send-sync (when input has a draft) ──
 setTimeout(() => { try { window._dockSyncSend && _dockSyncSend(); } catch(e){} }, 100);
 
@@ -36109,8 +36469,8 @@ class CCHandler(BaseHTTPRequestHandler):
             slog(f"ERROR {method} {path} — {e}\n{traceback.format_exc()}")
             return self._json({"error": str(e)}, 500)
         finally:
-            # Skip logging SSE (long-lived) connections
-            if path != "/api/events":
+            # Skip logging SSE and WebSocket (long-lived) connections
+            if path != "/api/events" and not path.startswith("/ws/"):
                 dt_ms = (time.monotonic() - t0) * 1000
                 ip = self.client_address[0]
                 slog(f"[{ip}] {method} {path} {self._resp_status} {dt_ms:.0f}ms")
