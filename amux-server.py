@@ -8285,12 +8285,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .report-last-refresh { font-size:0.72rem; color:var(--dim); }
   .report-total { font-weight:600; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  html { font-size: 16px; overflow-x: clip; }
+  html { font-size: 16px; overflow-x: clip; overscroll-behavior-y: contain; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     background: var(--bg); color: var(--text);
     min-height: 100vh; min-height: 100dvh;
     width: 100%; overflow-x: clip;
+    /* Prevent accidental pull-to-refresh — it reloads and kills SSE. */
+    overscroll-behavior-y: contain;
     padding: 16px; padding-top: max(16px, var(--chrome-tab-h, 0px), env(safe-area-inset-top));
     padding-bottom: max(16px, env(safe-area-inset-bottom));
     -webkit-text-size-adjust: 100%;
@@ -14222,14 +14224,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .header-add-btn { width: 44px; height: 44px; min-width: 44px; }
     .settings-btn, #notif-btn { width: 44px; height: 44px; min-width: 44px; }
     .btn-active { min-height: 44px; height: 44px; padding: 0 12px; }
-    /* WCAG 2.5.5 / Apple HIG: every interactive element ≥44×44 on touch */
+    /* WCAG 2.5.5 / Apple HIG: every interactive element ≥44×44 on touch.
+       Selectors must beat #session-view .tile-btn (which sets min-width:32px). */
     .tile-btn,
+    #session-view .tile-btn,
     #log-search-btn,
+    #session-view #log-search-btn,
     .peek-tab,
     .card-menu-btn,
     .card .header-icon-btn,
     .session-card .header-icon-btn,
-    .focus-kbd-btn {
+    .focus-kbd-btn,
+    .palette-mobile-btn {
       min-width: 44px; min-height: 44px;
     }
     .search-input { min-height: 44px; }
