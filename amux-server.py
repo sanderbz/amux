@@ -37026,7 +37026,10 @@ class CCHandler(BaseHTTPRequestHandler):
             return True
         if path in _PUBLIC_PATHS or any(path.startswith(p) for p in _PUBLIC_PREFIXES):
             return True
-        if method == "GET" and not path.startswith("/api/") and not path.startswith("/proxy/"):
+        if (method == "GET"
+                and not path.startswith("/api/")
+                and not path.startswith("/proxy/")
+                and not path.startswith("/ws/")):
             return True
         auth = self.headers.get("Authorization", "")
         if auth == f"Bearer {AUTH_TOKEN}":
