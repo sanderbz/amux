@@ -8300,7 +8300,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
   .card {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 16px; cursor: default;
+    border-radius: 10px; padding: 14px 16px; cursor: pointer;
     transition: border-color 0.15s; overflow: hidden;
     -webkit-tap-highlight-color: transparent; min-width: 0;
     user-select: text; -webkit-user-select: text;
@@ -8308,6 +8308,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     position: relative;
   }
   .card:active { border-color: var(--accent); }
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
   .card-header { display: flex; flex-direction: column; gap: 4px; position: relative; min-width: 0; cursor: default; }
   .card-header-top { display: flex; align-items: center; gap: 10px; width: 100%; }
   .card-drag-handle {
@@ -18024,7 +18028,7 @@ function render() {
     else if (s.rate_limited_until && s.rate_limited_until * 1000 > Date.now()) _miniAttn = 'attention-error';
     const _miniLines = (s.preview_lines || []).slice(-12).map(l => esc(l)).join('\n');
     return `
-    <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" onclick="event.stopPropagation();toggle('${s.name}')">
+    <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" role="button" tabindex="0" aria-label="Session ${esc(s.name)}${_miniStatus ? ', ' + _miniStatus : ''}${s.last_activity ? ', ' + timeAgo(s.last_activity) : ''}${s.dir ? ', ' + esc(s.dir) : ''}" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();toggle('${s.name}');}" onclick="event.stopPropagation();toggle('${s.name}')">
       <div class="card-header" onclick="headerTap('${s.name}', event)" onmousedown="tileMouseDown(event,'${s.name}')">
         <div class="card-header-top">
           <div class="card-drag-handle" title="Drag to reorder"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg></div>
