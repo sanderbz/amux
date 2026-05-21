@@ -10121,13 +10121,25 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     background: #0a0a0c !important;
     color-scheme: dark;
     overflow: hidden;
-    /* Guarantee enough height at peek detent for ~7 rows of output so
-       the user sees meaningful terminal content the moment the sheet
-       opens. Char cell = 13px × 1.4 line-height = ~18.2px. With 12px
-       top + bottom padding, 160px → ~7 rows. Without this, the sheet
-       body can be 0px mid-transition and FitAddon falls back to a
-       1-row terminal that never grows because no resize event fires. */
-    min-height: 160px;
+    /* Small min-height floor so FitAddon never sees a 0px container
+       mid-transition (which would lock the term at 1 row). At ≥half
+       detent and on desktop, the terminal happily grows to fill its
+       flex parent — this floor only kicks in transiently.
+       NOTE: at peek detent on mobile this min-height would overflow
+       the sheet body and push xterm below the visible viewport; the
+       @media (max-width: 768px) rule below overrides it at peek. */
+    min-height: 80px;
+  }
+  /* At peek detent on mobile, the sheet is ~30vh. Header (44pt) +
+     input row (~52pt) + bottom safe-area must fit, leaving the
+     terminal canvas only ~80–110px. Cap the live-term min-height
+     so it doesn't push itself off the visible sheet area. */
+  @media (max-width: 768px) {
+    #peek-overlay.focus-shell.ios-sheet--peek #peek-body.live-term-host {
+      min-height: 0;
+      padding-top: var(--s-1);
+      padding-bottom: var(--s-1);
+    }
   }
   #peek-body.live-term-host .xterm,
   #peek-body.live-term-host .xterm-viewport,
@@ -23585,7 +23597,10 @@ function _syncPeekOverlayToVisualViewport() {
   // Detent fractions of viewport height: peek / half / full.
   // Full uses 1.0 but JS subtracts safe-area-top so the sheet doesn't
   // overlap the iOS notch — the surface still rounds at the top.
-  const DETENTS = [0.30, 0.60, 1.0];
+  // Peek bumped from 0.30 → 0.38 so the terminal canvas has enough
+  // vertical room (~80–110px after header+input chrome) to actually
+  // show 4–6 rows of live output instead of clipping below viewport.
+  const DETENTS = [0.38, 0.60, 1.0];
   const DETENT_NAMES = ['peek', 'half', 'full'];
 
   class IosSheet {
