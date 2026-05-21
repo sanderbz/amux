@@ -9999,9 +9999,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
 
   /* ── LiveTerminal xterm host (replaces #peek-body innerHTML rendering) ── */
-  #peek-body.live-term-host {
+  /* Terminal surface stays dark in light mode too — Apple's Terminal.app
+     defaults to dark in light system mode. ANSI colors are tuned for dark
+     backgrounds; rendering them on a white sheet fails WCAG AA contrast. */
+  #peek-body.live-term-host,
+  .focus-sheet-surface .live-term-host {
     padding: var(--s-3) 0 var(--s-3) var(--s-3);
-    background: var(--bg-base);
+    background: #0a0a0c;
+    color-scheme: dark;
     overflow: hidden;
   }
   #peek-body.live-term-host .xterm,
@@ -35842,9 +35847,12 @@ async function _jrnlSaveConfig() {
         throw new Error('xterm-not-loaded');
       }
 
-      // Read design tokens at construction time so theme changes apply
+      // Terminal panel is ALWAYS rendered on a dark canvas (the .live-term-host
+       // CSS forces #0a0a0c bg in both themes). ANSI tints are tuned for dark
+       // backgrounds — pinning the foreground avoids a low-contrast gray-on-gray
+       // failure when --label-primary resolves to dark in light app theme.
       const cs = getComputedStyle(document.body);
-      const fg = (cs.getPropertyValue('--label-primary') || '#e8e8ec').trim() || '#e8e8ec';
+      const fg = '#e8e8ec';
       // ANSI palette — map to iOS system tints where they make sense
       const tint = (n, fb) => (cs.getPropertyValue(n) || fb).trim() || fb;
 
