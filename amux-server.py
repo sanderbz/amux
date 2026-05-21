@@ -10175,6 +10175,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       padding-top: var(--s-1);
       padding-bottom: var(--s-1);
     }
+    /* Strip every non-essential chrome row at peek detent: only header,
+       terminal canvas and input row should be visible. The accessory
+       bar, focus-subtab-pill, voice-status, attachments, and any sub-
+       tab chrome each eat 40–56px — at 30vh that's the whole canvas. */
+    #peek-overlay.focus-shell.ios-sheet--peek .focus-accessory,
+    #peek-overlay.focus-shell.ios-sheet--peek .focus-subtab-pill,
+    #peek-overlay.focus-shell.ios-sheet--peek .focus-search-bar,
+    #peek-overlay.focus-shell.ios-sheet--peek .voice-status,
+    #peek-overlay.focus-shell.ios-sheet--peek .peek-attach-bar:empty {
+      display: none !important;
+    }
+    /* Tighter dock padding at peek so the input row alone is ~44pt */
+    #peek-overlay.focus-shell.ios-sheet--peek .focus-dock {
+      padding-top: var(--s-1);
+      gap: 0;
+    }
   }
   #peek-body.live-term-host .xterm,
   #peek-body.live-term-host .xterm-viewport,
@@ -21782,7 +21798,15 @@ function _syncPeekOverlayToVisualViewport() {
   // skip the legacy inline-size hack so terminal keeps full canvas.
   if (ov.classList.contains('focus-shell')) {
     // Make sure no stale inline sizing lingers from older sessions
-    ov.style.top = ''; ov.style.height = ''; ov.style.bottom = ''; ov.style.paddingBottom = '';
+    ov.style.top = ''; ov.style.bottom = ''; ov.style.paddingBottom = '';
+    // CRITICAL: do NOT clear style.height when the iOS drag-detent sheet
+    // owns it (peek/half/full detents are set inline by IosSheet.setHeight).
+    // Clearing here would collapse the sheet to its content height (~214px
+    // instead of the configured 253px peek), making the xterm canvas 0px
+    // tall. The sheet's own _wireResize re-syncs detent on viewport change.
+    if (!ov.classList.contains('ios-sheet')) {
+      ov.style.height = '';
+    }
     ov.classList.remove('vv-compact');
     if (window._dockSyncKeyboard) window._dockSyncKeyboard();
     return;
