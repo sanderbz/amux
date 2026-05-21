@@ -303,6 +303,12 @@ def _install_signal_handlers():
         sig_name = signal.Signals(signum).name
         slog(f"[SIGNAL] received {sig_name} ({signum}) — logging diagnostics before exit")
         _log_resource_snapshot("crash-dump")
+        # Tear down live tmux streamers so log pipe-pane gets restored and
+        # /tmp/amux-pipe-*.fifo files don't linger. Best-effort, never blocks.
+        try:
+            _streamer_shutdown_all()
+        except Exception:
+            pass
         slog(f"[SIGNAL] exiting due to {sig_name}")
         sys.exit(128 + signum)
     for sig in (signal.SIGTERM, signal.SIGHUP):
@@ -35453,6 +35459,297 @@ def _ws_close_payload(code: int = 1000, reason: str = "") -> bytes:
     return struct.pack("!H", code) + reason.encode("utf-8")[:123]
 
 
+# ═══════════════════════════════════════════
+# TMUX STREAMER (live pty fan-out)
+# One streamer per tmux session. Uses `tmux pipe-pane` writing into a fifo
+# while ALSO appending to the existing on-disk log (via `tee -a`). The reader
+# thread fans every chunk out to all WS subscribers and into a rolling replay
+# buffer so new clients get instant context on connect.
+#
+# Critical: tmux allows only ONE pipe-pane per pane (man tmux pipe-pane —
+# "any existing pipe is closed before shell-command is executed"). Existing
+# code uses `cat >> {log}` for log streaming; we replace it with
+# `tee -a {log} > {fifo}` so logs keep working unchanged. The fifo path is
+# /tmp/amux-pipe-{tmux_name}.fifo (matches the vision spec).
+# ═══════════════════════════════════════════
+
+_STREAMER_REPLAY_BYTES = 64 * 1024  # ~last 64 KB of pane output kept for replays
+_STREAMER_FIFO_DIR = "/tmp"
+
+
+def _streamer_fifo_path(name: str) -> str:
+    """Return the named-pipe path for a session (mirrors tmux session name)."""
+    return f"{_STREAMER_FIFO_DIR}/amux-pipe-{tmux_name(name)}.fifo"
+
+
+class TmuxStreamer:
+    """Per-session live pty stream. Singleton-by-name. Thread-safe."""
+
+    _instances: dict[str, "TmuxStreamer"] = {}
+    _instances_lock = threading.Lock()
+
+    def __init__(self, name: str):
+        self.name = name
+        self.fifo_path = _streamer_fifo_path(name)
+        self.subs: set = set()           # subscriber objects (each has .deliver(bytes))
+        self.subs_lock = threading.Lock()
+        self.replay = bytearray()        # rolling buffer, trimmed to _STREAMER_REPLAY_BYTES
+        self.replay_lock = threading.Lock()
+        self.bytes_seen = 0              # monotonic total since streamer start
+        self.started_at = time.time()
+        self._stop = threading.Event()
+        self._fifo_fd: int | None = None
+        self._reader: threading.Thread | None = None
+        self._start()  # may raise RuntimeError if session not running
+
+    # ── Singleton accessor ──
+    @classmethod
+    def get(cls, name: str) -> "TmuxStreamer":
+        """Return (creating if needed) the streamer for `name`.
+        Raises RuntimeError if the session can't be set up (e.g. not running)."""
+        with cls._instances_lock:
+            inst = cls._instances.get(name)
+            if inst is not None and not inst._stop.is_set():
+                return inst
+            inst = cls(name)  # may raise
+            cls._instances[name] = inst
+            return inst
+
+    @classmethod
+    def peek(cls, name: str) -> "TmuxStreamer | None":
+        """Return existing streamer or None — no creation."""
+        with cls._instances_lock:
+            inst = cls._instances.get(name)
+            if inst and inst._stop.is_set():
+                return None
+            return inst
+
+    @classmethod
+    def all_instances(cls) -> list["TmuxStreamer"]:
+        with cls._instances_lock:
+            return [s for s in cls._instances.values() if not s._stop.is_set()]
+
+    # ── Lifecycle ──
+    def _start(self) -> None:
+        # Verify tmux session exists.
+        target = tmux_target(self.name)
+        try:
+            r = subprocess.run(
+                ["tmux", "has-session", "-t", target],
+                capture_output=True, timeout=3,
+            )
+            if r.returncode != 0:
+                raise RuntimeError(f"tmux session '{target}' not found")
+        except FileNotFoundError as e:
+            raise RuntimeError("tmux not installed") from e
+
+        # Ensure log dir exists (tee -a will create the log file itself).
+        try:
+            CC_LOGS.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        # Recreate fifo (drop stale).
+        try:
+            if os.path.exists(self.fifo_path):
+                os.unlink(self.fifo_path)
+        except OSError:
+            pass
+        try:
+            os.mkfifo(self.fifo_path, 0o600)
+        except FileExistsError:
+            pass
+
+        # Open fifo for reading first (non-blocking) so tee's open-for-write
+        # in the shell doesn't block — POSIX requires both ends open.
+        try:
+            self._fifo_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError as e:
+            raise RuntimeError(f"cannot open fifo: {e}") from e
+
+        # Replace pipe-pane with fan-out: tee appends to log, stdout → fifo.
+        # `-O` is the default (output direction); explicit for clarity.
+        # Any existing pipe-pane is closed automatically by tmux.
+        lp = _log_path(self.name)
+        cmd = f"tee -a {shlex.quote(str(lp))} > {shlex.quote(self.fifo_path)}"
+        try:
+            subprocess.run(
+                ["tmux", "pipe-pane", "-O", "-t", target, cmd],
+                capture_output=True, timeout=5, check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            os.close(self._fifo_fd)
+            self._fifo_fd = None
+            raise RuntimeError(f"tmux pipe-pane failed: {e.stderr.decode(errors='replace')}") from e
+
+        # Spawn reader thread.
+        self._reader = threading.Thread(
+            target=self._read_loop, name=f"tmux-stream-{self.name}", daemon=True,
+        )
+        self._reader.start()
+
+    def _read_loop(self) -> None:
+        """Drain the fifo forever (until stop), fanning out chunks."""
+        fd = self._fifo_fd
+        if fd is None:
+            return
+        while not self._stop.is_set():
+            try:
+                # Wait up to 1 s for data — select is robust on macOS/Linux
+                # for fifos opened non-blocking. Re-open on EOF (writer gone).
+                r, _, _ = select.select([fd], [], [], 1.0)
+                if not r:
+                    continue
+                try:
+                    chunk = os.read(fd, 65536)
+                except BlockingIOError:
+                    continue
+                if not chunk:
+                    # Writer side closed (pipe-pane was cancelled). Try to
+                    # re-open fifo so future writers don't get EPIPE.
+                    time.sleep(0.1)
+                    try:
+                        new_fd = os.open(self.fifo_path, os.O_RDONLY | os.O_NONBLOCK)
+                        os.close(fd)
+                        fd = new_fd
+                        self._fifo_fd = new_fd
+                    except OSError:
+                        # Fifo gone entirely — stop.
+                        break
+                    continue
+                # Update rolling replay buffer.
+                with self.replay_lock:
+                    self.replay.extend(chunk)
+                    if len(self.replay) > _STREAMER_REPLAY_BYTES:
+                        del self.replay[: len(self.replay) - _STREAMER_REPLAY_BYTES]
+                    self.bytes_seen += len(chunk)
+                # Fan out to subs. Snapshot under lock; deliver outside lock.
+                with self.subs_lock:
+                    targets = list(self.subs)
+                for sub in targets:
+                    try:
+                        sub.deliver(chunk)
+                    except Exception:
+                        # Sub broken — drop it; the WS handler also cleans up.
+                        try:
+                            self.unsubscribe(sub)
+                        except Exception:
+                            pass
+            except OSError:
+                break
+            except Exception:
+                # Defensive: never let the reader die silently on transient errors.
+                time.sleep(0.05)
+        # Cleanup on exit.
+        try:
+            if self._fifo_fd is not None:
+                os.close(self._fifo_fd)
+        except OSError:
+            pass
+
+    def stop(self, *, restore_log_pipe: bool = True) -> None:
+        """Tear down this streamer: cancel pipe-pane, close fifo, mark stopped.
+        If restore_log_pipe is True (default), re-attach the original log-only
+        pipe-pane so on-disk logging continues for that session."""
+        if self._stop.is_set():
+            return
+        self._stop.set()
+        target = tmux_target(self.name)
+        # Cancel pipe-pane (clears the tee command).
+        try:
+            subprocess.run(
+                ["tmux", "pipe-pane", "-t", target],
+                capture_output=True, timeout=3,
+            )
+        except Exception:
+            pass
+        # Restore original log-only pipe so background log capture continues
+        # (matches _attach_log_streaming).
+        if restore_log_pipe:
+            try:
+                lp = _log_path(self.name)
+                subprocess.run(
+                    ["tmux", "pipe-pane", "-t", target, "-o",
+                     f"cat >> {shlex.quote(str(lp))}"],
+                    capture_output=True, timeout=3,
+                )
+            except Exception:
+                pass
+        # Closing fifo fd ends the reader's select loop.
+        try:
+            if self._fifo_fd is not None:
+                os.close(self._fifo_fd)
+                self._fifo_fd = None
+        except OSError:
+            pass
+        # Best-effort fifo unlink (don't error if a writer still holds it).
+        try:
+            if os.path.exists(self.fifo_path):
+                os.unlink(self.fifo_path)
+        except OSError:
+            pass
+        with TmuxStreamer._instances_lock:
+            TmuxStreamer._instances.pop(self.name, None)
+
+    # ── Subscribers ──
+    def subscribe(self, sub) -> bytes:
+        """Register sub (must have .deliver(bytes)). Returns current replay buffer."""
+        with self.subs_lock:
+            self.subs.add(sub)
+        with self.replay_lock:
+            return bytes(self.replay)
+
+    def unsubscribe(self, sub) -> None:
+        with self.subs_lock:
+            self.subs.discard(sub)
+        # Per vision spec: do NOT tear down pipe-pane when subs hit zero —
+        # too churn-y. Streamer stays alive for the process lifetime.
+
+    def stats(self) -> dict:
+        with self.subs_lock:
+            n_subs = len(self.subs)
+        with self.replay_lock:
+            buf_len = len(self.replay)
+        return {
+            "session": self.name,
+            "connected_subs": n_subs,
+            "buffered_bytes": buf_len,
+            "total_bytes_seen": self.bytes_seen,
+            "uptime_seconds": int(time.time() - self.started_at),
+            "fifo_path": self.fifo_path,
+        }
+
+
+def _streamer_cleanup_stale_fifos() -> None:
+    """Garbage-collect leftover /tmp/amux-pipe-*.fifo from prior process runs
+    or crashes. Called at startup. Safe: we only delete fifos that match our
+    naming pattern AND are not currently owned by a live streamer."""
+    try:
+        active_paths = {s.fifo_path for s in TmuxStreamer.all_instances()}
+        import glob as _glob
+        import stat as _stat
+        for p in _glob.glob(f"{_STREAMER_FIFO_DIR}/amux-pipe-*.fifo"):
+            if p in active_paths:
+                continue
+            try:
+                # Only unlink if it's actually a fifo (defensive).
+                if _stat.S_ISFIFO(os.stat(p).st_mode):
+                    os.unlink(p)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
+def _streamer_shutdown_all() -> None:
+    """Tear down every active streamer. Called on server SIGTERM."""
+    for s in TmuxStreamer.all_instances():
+        try:
+            s.stop(restore_log_pipe=True)
+        except Exception:
+            pass
+
+
 class CCHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # Suppressed — we do our own timing-aware logging in _route()
@@ -42239,6 +42536,7 @@ def main():
     _init_default_sessions()
     _auto_resume_sessions()
     _attach_log_streaming()  # re-attach pipe-pane for sessions surviving os.execv
+    _streamer_cleanup_stale_fifos()  # drop leftover /tmp/amux-pipe-*.fifo
 
     # Pre-configure ~/.claude.json to skip interactive setup wizard
     _init_claude_config()
