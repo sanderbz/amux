@@ -31596,119 +31596,626 @@ class CCHandler(BaseHTTPRequestHandler):
             )
             return self._html(page)
 
-        # GET /paste — clipboard-paste helper page (mobile-friendly)
+        # GET /paste — clipboard-paste helper page (mobile-friendly, Apple-grade)
         if method == "GET" and path == "/paste":
             import json as _json
             html = """<!doctype html>
-<html lang="en">
+<html lang='en'>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1e1e2e">
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no'>
+<meta name='theme-color' content='#000000' media='(prefers-color-scheme: dark)'>
+<meta name='theme-color' content='#f2f2f7' media='(prefers-color-scheme: light)'>
+<meta name='apple-mobile-web-app-capable' content='yes'>
+<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'>
+<meta name='apple-mobile-web-app-title' content='amux paste'>
+<meta name='mobile-web-app-capable' content='yes'>
+<link rel='manifest' href='/paste-manifest.json'>
 <title>amux paste</title>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-         background:#1e1e2e; color:#cdd6f4; padding:env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); }
-  .wrap { max-width:560px; margin:1rem auto; }
-  h1 { font-size:1.2rem; margin:0 0 1rem; color:#89b4fa; }
-  label { display:block; font-size:0.85rem; margin:1rem 0 0.4rem; color:#a6adc8; }
-  select, textarea, button { width:100%; padding:0.9rem 1rem; border-radius:0.6rem; border:1px solid #45475a;
-         background:#181825; color:#cdd6f4; font-size:1rem; font-family:inherit; }
-  textarea { min-height:120px; resize:vertical; font-family:ui-monospace,monospace; }
-  button { font-weight:600; cursor:pointer; margin-top:0.6rem; border:none; transition:transform 0.05s; }
-  button:active { transform:scale(0.98); }
-  .primary { background:#89b4fa; color:#1e1e2e; }
-  .secondary { background:#a6e3a1; color:#1e1e2e; }
-  .ghost { background:transparent; border:1px solid #45475a; color:#cdd6f4; }
-  .row { display:flex; gap:0.6rem; }
-  .row > * { flex:1; }
-  #status { margin-top:1rem; padding:0.8rem; border-radius:0.5rem; min-height:1.2em;
-            font-size:0.9rem; background:#181825; transition:all 0.2s; }
-  #status.ok { background:#1e3a1e; color:#a6e3a1; }
-  #status.err { background:#3a1e1e; color:#f38ba8; }
-  .footer { margin-top:1.5rem; font-size:0.75rem; color:#6c7086; text-align:center; }
+  :root {
+    color-scheme: dark light;
+    /* Typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --text-caption1: 0.75rem;
+    --text-footnote: 0.8125rem;
+    --text-subhead: 0.9375rem;
+    --text-callout: 1rem;
+    --text-body: 1.0625rem;
+    --text-title3: 1.25rem;
+    --text-title2: 1.375rem;
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+
+    /* Spacing — 4pt grid */
+    --s-1: 0.25rem; --s-2: 0.5rem; --s-3: 0.75rem;
+    --s-4: 1rem;    --s-5: 1.25rem; --s-6: 1.5rem;
+    --s-8: 2rem;    --s-10: 2.5rem;
+
+    /* Radii */
+    --r-xs: 6px;
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 22px;
+    --r-full: 9999px;
+
+    /* Colors — dark default (true black for OLED) */
+    --bg-base:        #000000;
+    --bg-layer-1:     #1c1c1e;
+    --bg-layer-2:     #2c2c2e;
+    --bg-layer-3:     #3a3a3c;
+    --bg-tinted:      rgba(120,120,128,0.16);
+    --mat-thick:      rgba(28,28,30,0.78);
+
+    --label-primary:    rgba(255,255,255,1.0);
+    --label-secondary:  rgba(235,235,245,0.6);
+    --label-tertiary:   rgba(235,235,245,0.3);
+
+    --tint-blue:   #0a84ff;
+    --tint-green:  #30d158;
+    --tint-red:    #ff453a;
+    --tint-orange: #ff9f0a;
+
+    --sep-non-opaque: rgba(84,84,88,0.34);
+
+    --shadow-sm:  0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md:  0 4px 16px rgba(0,0,0,0.4);
+    --shadow-lg:  0 12px 40px rgba(0,0,0,0.5);
+
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-instant: 100ms;
+    --duration-fast:    200ms;
+    --duration-medium:  300ms;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg-base:        #f2f2f7;
+      --bg-layer-1:     #ffffff;
+      --bg-layer-2:     #ffffff;
+      --bg-layer-3:     #e5e5ea;
+      --bg-tinted:      rgba(120,120,128,0.12);
+      --mat-thick:      rgba(255,255,255,0.78);
+
+      --label-primary:    #000000;
+      --label-secondary:  rgba(60,60,67,0.6);
+      --label-tertiary:   rgba(60,60,67,0.3);
+
+      --sep-non-opaque: rgba(60,60,67,0.18);
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+    }
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    color: var(--label-primary);
+    background: var(--bg-base);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in srgb, var(--tint-blue) 14%, transparent), transparent 60%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding:
+      calc(env(safe-area-inset-top) + var(--s-4))
+      calc(env(safe-area-inset-right) + var(--s-4))
+      calc(env(safe-area-inset-bottom) + var(--s-4))
+      calc(env(safe-area-inset-left) + var(--s-4));
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-5);
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-2) var(--s-1) 0;
+  }
+  .logo {
+    width: 36px; height: 36px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, var(--tint-blue), color-mix(in srgb, var(--tint-blue) 70%, var(--tint-orange)));
+    display: grid; place-items: center;
+    color: white;
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+  .logo svg { width: 20px; height: 20px; }
+  .title-block { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  h1 {
+    font-size: var(--text-title2);
+    font-weight: var(--weight-semibold);
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--label-primary);
+    line-height: 1.1;
+  }
+  .subtitle {
+    font-size: var(--text-footnote);
+    color: var(--label-secondary);
+    line-height: 1.2;
+  }
+
+  /* Card — main surface */
+  .card {
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-lg);
+    padding: var(--s-5);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-5);
+  }
+
+  /* Field group */
+  .field { display: flex; flex-direction: column; gap: var(--s-2); }
+  .field-label {
+    font-size: var(--text-footnote);
+    font-weight: var(--weight-medium);
+    color: var(--label-secondary);
+    padding-left: var(--s-1);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .field-hint {
+    font-size: var(--text-caption1);
+    color: var(--label-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Session pills — horizontal scroll */
+  .pills {
+    display: flex;
+    gap: var(--s-2);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: var(--s-1) 0 var(--s-2);
+    margin: 0 calc(var(--s-5) * -1);
+    padding-left: var(--s-5);
+    padding-right: var(--s-5);
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .pills::-webkit-scrollbar { display: none; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 var(--s-4);
+    border-radius: var(--r-full);
+    background: var(--bg-tinted);
+    color: var(--label-primary);
+    border: 1px solid transparent;
+    font-size: var(--text-subhead);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    scroll-snap-align: start;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .pill:active { transform: scale(0.96); }
+  .pill .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--tint-green);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--tint-green) 60%, transparent);
+    flex-shrink: 0;
+  }
+  .pill.active {
+    background: color-mix(in srgb, var(--tint-blue) 18%, transparent);
+    color: var(--tint-blue);
+    border-color: color-mix(in srgb, var(--tint-blue) 35%, transparent);
+  }
+  .pill.active .dot { background: var(--tint-blue); box-shadow: 0 0 8px color-mix(in srgb, var(--tint-blue) 60%, transparent); }
+  .pills-empty {
+    font-size: var(--text-subhead);
+    color: var(--label-tertiary);
+    padding: var(--s-2) var(--s-1);
+  }
+
+  /* Inputs */
+  .input-ios, .textarea-ios {
+    width: 100%;
+    min-height: 44px;
+    padding: var(--s-3) var(--s-4);
+    background: var(--bg-base);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    color: var(--label-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.4;
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                background var(--duration-fast) var(--ease-standard),
+                box-shadow var(--duration-fast) var(--ease-standard);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  @media (prefers-color-scheme: light) {
+    .input-ios, .textarea-ios { background: var(--bg-layer-3); }
+  }
+  .textarea-ios {
+    min-height: 160px;
+    resize: vertical;
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+  .input-ios::placeholder, .textarea-ios::placeholder {
+    color: var(--label-tertiary);
+  }
+  .input-ios:focus, .textarea-ios:focus {
+    outline: none;
+    border-color: var(--tint-blue);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint-blue) 20%, transparent);
+    background: var(--bg-layer-2);
+  }
+
+  /* Buttons */
+  .btn {
+    min-height: 44px;
+    padding: 0 var(--s-4);
+    border: none;
+    border-radius: var(--r-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-callout);
+    font-weight: var(--weight-semibold);
+    color: var(--label-primary);
+    background: var(--bg-tinted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2);
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard),
+                box-shadow var(--duration-fast) var(--ease-standard);
+    width: 100%;
+  }
+  .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .btn:active:not(:disabled) { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: var(--bg-tinted); }
+  .btn-primary {
+    background: var(--tint-blue);
+    color: white;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--tint-blue) 35%, transparent);
+  }
+  .btn-success {
+    background: color-mix(in srgb, var(--tint-green) 18%, transparent);
+    color: var(--tint-green);
+  }
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-3);
+  }
+
+  /* Clipboard button pulse when active */
+  .btn.is-loading svg {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.9); }
+  }
+
+  /* Status badge */
+  .status-wrap {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .status {
+    width: 100%;
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--r-md);
+    background: var(--bg-tinted);
+    color: var(--label-secondary);
+    font-size: var(--text-subhead);
+    line-height: 1.35;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    transition: background var(--duration-medium) var(--ease-standard),
+                color var(--duration-medium) var(--ease-standard);
+  }
+  .status svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .status.is-ok {
+    background: color-mix(in srgb, var(--tint-green) 14%, transparent);
+    color: var(--tint-green);
+  }
+  .status.is-err {
+    background: color-mix(in srgb, var(--tint-red) 14%, transparent);
+    color: var(--tint-red);
+  }
+  .status.is-busy {
+    background: color-mix(in srgb, var(--tint-blue) 14%, transparent);
+    color: var(--tint-blue);
+  }
+  .status.bump {
+    animation: bump 380ms var(--ease-emphasized);
+  }
+  @keyframes bump {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
+    60%  { opacity: 1; transform: translateY(-2px) scale(1.005); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: var(--text-caption1);
+    color: var(--label-tertiary);
+    padding: var(--s-2) 0 var(--s-4);
+  }
+  .footer .dot-sep {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--label-tertiary);
+    opacity: 0.6;
+  }
+
+  /* Loading skeleton for pills */
+  .skel-pill {
+    width: 92px; height: 36px;
+    border-radius: var(--r-full);
+    background: var(--bg-tinted);
+    animation: shimmer 1.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>📋 amux paste</h1>
-  <label for="sess">Session</label>
-  <select id="sess"></select>
+<div class='wrap'>
+  <header class='header'>
+    <div class='logo' aria-hidden='true'>
+      <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><rect x='8' y='2' width='8' height='4' rx='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/></svg>
+    </div>
+    <div class='title-block'>
+      <h1>Paste</h1>
+      <div class='subtitle'>Send clipboard text to a running session</div>
+    </div>
+  </header>
 
-  <label for="txt">Text</label>
-  <textarea id="txt" placeholder="Paste here or use the clipboard button below…"></textarea>
+  <main class='card'>
+    <div class='field'>
+      <div class='field-label'>
+        <span>Session</span>
+        <span class='field-hint' id='sessHint'>Loading…</span>
+      </div>
+      <div class='pills' id='pills' role='radiogroup' aria-label='Running sessions'>
+        <div class='skel-pill'></div>
+        <div class='skel-pill' style='width:120px'></div>
+        <div class='skel-pill' style='width:80px'></div>
+      </div>
+    </div>
 
-  <button id="clip" class="ghost">📋 Paste from clipboard</button>
+    <div class='field'>
+      <div class='field-label'>
+        <span>Text</span>
+        <span class='field-hint' id='charCount'>0 chars</span>
+      </div>
+      <textarea id='txt' class='textarea-ios' placeholder='Paste here, or tap the button below to read your clipboard…' autocapitalize='off' autocorrect='off' spellcheck='false'></textarea>
+    </div>
 
-  <div class="row">
-    <button id="send" class="primary">Send</button>
-    <button id="sendEnter" class="secondary">Send + Enter ⏎</button>
+    <button id='clip' class='btn btn-secondary' type='button'>
+      <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='8' height='4' x='8' y='2' rx='1' ry='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/></svg>
+      <span>Paste from clipboard</span>
+    </button>
+
+    <div class='btn-row'>
+      <button id='send' class='btn btn-primary' type='button'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.5.5 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z'/><path d='m21.854 2.147-10.94 10.939'/></svg>
+        <span>Send</span>
+      </button>
+      <button id='sendEnter' class='btn btn-success' type='button'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 10 4 15 9 20'/><path d='M20 4v7a4 4 0 0 1-4 4H4'/></svg>
+        <span>Send + Enter</span>
+      </button>
+    </div>
+
+    <div class='status-wrap'>
+      <div id='status' class='status'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M12 16v-4'/><path d='M12 8h.01'/></svg>
+        <span id='statusText'>Pick a session, paste your text, hit Send.</span>
+      </div>
+    </div>
+  </main>
+
+  <div class='footer'>
+    <span>amux</span>
+    <span class='dot-sep'></span>
+    <span>clipboard helper</span>
   </div>
-
-  <div id="status">Pick a session, paste your text, hit Send.</div>
-  <div class="footer">amux · clipboard helper</div>
 </div>
+
 <script>
 const TOKEN = """ + _json.dumps(AUTH_TOKEN) + """;
 const $ = (id) => document.getElementById(id);
-const status = (msg, cls="") => { const el = $("status"); el.textContent = msg; el.className = cls; };
 
-async function api(path, opts={}) {
-  opts.headers = Object.assign({ "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" }, opts.headers || {});
+const ICONS = {
+  info:   '<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><circle cx=\\'12\\' cy=\\'12\\' r=\\'10\\'/><path d=\\'M12 16v-4\\'/><path d=\\'M12 8h.01\\'/></svg>',
+  ok:     '<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2.4\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><path d=\\'M20 6 9 17l-5-5\\'/></svg>',
+  err:    '<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2.2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><circle cx=\\'12\\' cy=\\'12\\' r=\\'10\\'/><path d=\\'m15 9-6 6\\'/><path d=\\'m9 9 6 6\\'/></svg>',
+  busy:   '<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\'><path d=\\'M21 12a9 9 0 1 1-6.219-8.56\\'/></svg>',
+};
+
+let currentSession = null;
+
+function setStatus(text, kind) {
+  const el = $('status');
+  const iconKey = kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : kind === 'busy' ? 'busy' : 'info';
+  el.innerHTML = ICONS[iconKey] + '<span id=\\'statusText\\'>' + text + '</span>';
+  el.classList.remove('is-ok','is-err','is-busy','bump');
+  if (kind === 'ok')   el.classList.add('is-ok');
+  if (kind === 'err')  el.classList.add('is-err');
+  if (kind === 'busy') el.classList.add('is-busy');
+  // restart animation
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' }, opts.headers || {});
   const r = await fetch(path, opts);
-  if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text()).slice(0,200));
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0,200));
   return r.json();
+}
+
+function renderPills(running) {
+  const wrap = $('pills');
+  wrap.innerHTML = '';
+  if (!running.length) {
+    wrap.innerHTML = '<div class=\\'pills-empty\\'>No running sessions.</div>';
+    $('sessHint').textContent = '0 running';
+    return;
+  }
+  $('sessHint').textContent = running.length + ' running';
+  for (const name of running) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pill';
+    b.setAttribute('role','radio');
+    b.dataset.name = name;
+    b.innerHTML = '<span class=\\'dot\\' aria-hidden=\\'true\\'></span><span>' + name.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</span>';
+    b.addEventListener('click', () => selectSession(name));
+    wrap.appendChild(b);
+  }
+}
+
+function selectSession(name) {
+  currentSession = name;
+  localStorage.setItem('amux-paste-last', name);
+  const pills = document.querySelectorAll('.pill');
+  pills.forEach(p => {
+    const active = p.dataset.name === name;
+    p.classList.toggle('active', active);
+    p.setAttribute('aria-checked', active ? 'true' : 'false');
+    if (active) p.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  });
 }
 
 async function loadSessions() {
   try {
-    const list = await api("/api/sessions");
-    const sel = $("sess");
-    sel.innerHTML = "";
+    const list = await api('/api/sessions');
     const running = list.filter(s => s.running).map(s => s.name);
-    const stopped = list.filter(s => !s.running).map(s => s.name);
-    for (const n of running) sel.innerHTML += `<option value="${n}">🟢 ${n}</option>`;
-    for (const n of stopped) sel.innerHTML += `<option value="${n}" disabled>⚪ ${n} (stopped)</option>`;
-    const last = localStorage.getItem("amux-paste-last");
-    if (last && running.includes(last)) sel.value = last;
-    sel.addEventListener("change", () => localStorage.setItem("amux-paste-last", sel.value));
+    renderPills(running);
+    const last = localStorage.getItem('amux-paste-last');
+    if (last && running.includes(last)) {
+      selectSession(last);
+    } else if (running.length) {
+      selectSession(running[0]);
+    }
+    if (running.length) {
+      setStatus('Ready. Paste your text and hit Send.', '');
+    } else {
+      setStatus('No running sessions found.', 'err');
+    }
   } catch (e) {
-    status("Could not load sessions: " + e.message, "err");
+    $('pills').innerHTML = '<div class=\\'pills-empty\\'>Could not load.</div>';
+    setStatus('Could not load sessions: ' + e.message, 'err');
   }
 }
 
-$("clip").addEventListener("click", async () => {
+const txt = $('txt');
+const charCount = $('charCount');
+function updateCount() {
+  const n = txt.value.length;
+  charCount.textContent = n === 1 ? '1 char' : n.toLocaleString() + ' chars';
+}
+txt.addEventListener('input', updateCount);
+
+const clipBtn = $('clip');
+clipBtn.addEventListener('click', async () => {
+  clipBtn.classList.add('is-loading');
   try {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      throw new Error('Clipboard API unavailable');
+    }
     const t = await navigator.clipboard.readText();
-    if (!t) { status("Clipboard is empty.", "err"); return; }
-    $("txt").value = t;
-    status(`Pasted ${t.length} chars from clipboard.`, "ok");
+    if (!t) { setStatus('Clipboard is empty.', 'err'); return; }
+    txt.value = t;
+    updateCount();
+    setStatus('Pasted ' + t.length.toLocaleString() + ' chars from clipboard.', 'ok');
   } catch (e) {
-    status("Clipboard read failed: " + e.message + ". Browsers require HTTPS + user gesture.", "err");
+    setStatus('Clipboard read failed: ' + e.message + '. Needs HTTPS + tap gesture.', 'err');
+  } finally {
+    setTimeout(() => clipBtn.classList.remove('is-loading'), 200);
   }
 });
 
 async function send(submit) {
-  const name = $("sess").value;
-  const text = $("txt").value;
-  if (!name) { status("Select a session.", "err"); return; }
-  if (!text) { status("No text to send.", "err"); return; }
-  status("Sending…");
+  if (!currentSession) { setStatus('Select a session first.', 'err'); return; }
+  const text = txt.value;
+  if (!text) { setStatus('Nothing to send — text is empty.', 'err'); return; }
+  setStatus('Sending…', 'busy');
   try {
-    const r = await api("/api/sessions/" + encodeURIComponent(name) + "/paste",
-      { method: "POST", body: JSON.stringify({ text: text, submit: submit }) });
-    status(`✓ Sent ${r.pasted} chars to ${name}${submit ? " + Enter" : ""}.`, "ok");
-    if (submit) $("txt").value = "";
+    const r = await api('/api/sessions/' + encodeURIComponent(currentSession) + '/paste',
+      { method: 'POST', body: JSON.stringify({ text: text, submit: submit }) });
+    setStatus('Sent ' + (r.pasted || text.length).toLocaleString() + ' chars to ' + currentSession + (submit ? ' + Enter.' : '.'), 'ok');
+    if (submit) { txt.value = ''; updateCount(); }
   } catch (e) {
-    status("Failed: " + e.message, "err");
+    setStatus('Failed: ' + e.message, 'err');
   }
 }
 
-$("send").addEventListener("click", () => send(false));
-$("sendEnter").addEventListener("click", () => send(true));
+$('send').addEventListener('click', () => send(false));
+$('sendEnter').addEventListener('click', () => send(true));
 
+// Refetch when the page resumes (background -> foreground)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadSessions();
+});
+
+updateCount();
 loadSessions();
 </script>
 </body>
