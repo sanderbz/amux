@@ -31423,6 +31423,125 @@ class CCHandler(BaseHTTPRequestHandler):
             )
             return self._html(page)
 
+        # GET /paste — clipboard-paste helper page (mobile-friendly)
+        if method == "GET" and path == "/paste":
+            import json as _json
+            html = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e1e2e">
+<title>amux paste</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#1e1e2e; color:#cdd6f4; padding:env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); }
+  .wrap { max-width:560px; margin:1rem auto; }
+  h1 { font-size:1.2rem; margin:0 0 1rem; color:#89b4fa; }
+  label { display:block; font-size:0.85rem; margin:1rem 0 0.4rem; color:#a6adc8; }
+  select, textarea, button { width:100%; padding:0.9rem 1rem; border-radius:0.6rem; border:1px solid #45475a;
+         background:#181825; color:#cdd6f4; font-size:1rem; font-family:inherit; }
+  textarea { min-height:120px; resize:vertical; font-family:ui-monospace,monospace; }
+  button { font-weight:600; cursor:pointer; margin-top:0.6rem; border:none; transition:transform 0.05s; }
+  button:active { transform:scale(0.98); }
+  .primary { background:#89b4fa; color:#1e1e2e; }
+  .secondary { background:#a6e3a1; color:#1e1e2e; }
+  .ghost { background:transparent; border:1px solid #45475a; color:#cdd6f4; }
+  .row { display:flex; gap:0.6rem; }
+  .row > * { flex:1; }
+  #status { margin-top:1rem; padding:0.8rem; border-radius:0.5rem; min-height:1.2em;
+            font-size:0.9rem; background:#181825; transition:all 0.2s; }
+  #status.ok { background:#1e3a1e; color:#a6e3a1; }
+  #status.err { background:#3a1e1e; color:#f38ba8; }
+  .footer { margin-top:1.5rem; font-size:0.75rem; color:#6c7086; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📋 amux paste</h1>
+  <label for="sess">Session</label>
+  <select id="sess"></select>
+
+  <label for="txt">Text</label>
+  <textarea id="txt" placeholder="Paste here or use the clipboard button below…"></textarea>
+
+  <button id="clip" class="ghost">📋 Paste from clipboard</button>
+
+  <div class="row">
+    <button id="send" class="primary">Send</button>
+    <button id="sendEnter" class="secondary">Send + Enter ⏎</button>
+  </div>
+
+  <div id="status">Pick a session, paste your text, hit Send.</div>
+  <div class="footer">amux · clipboard helper</div>
+</div>
+<script>
+const TOKEN = """ + _json.dumps(AUTH_TOKEN) + """;
+const $ = (id) => document.getElementById(id);
+const status = (msg, cls="") => { const el = $("status"); el.textContent = msg; el.className = cls; };
+
+async function api(path, opts={}) {
+  opts.headers = Object.assign({ "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" }, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error("HTTP " + r.status + " " + (await r.text()).slice(0,200));
+  return r.json();
+}
+
+async function loadSessions() {
+  try {
+    const list = await api("/api/sessions");
+    const sel = $("sess");
+    sel.innerHTML = "";
+    const running = list.filter(s => s.running).map(s => s.name);
+    const stopped = list.filter(s => !s.running).map(s => s.name);
+    for (const n of running) sel.innerHTML += `<option value="${n}">🟢 ${n}</option>`;
+    for (const n of stopped) sel.innerHTML += `<option value="${n}" disabled>⚪ ${n} (stopped)</option>`;
+    const last = localStorage.getItem("amux-paste-last");
+    if (last && running.includes(last)) sel.value = last;
+    sel.addEventListener("change", () => localStorage.setItem("amux-paste-last", sel.value));
+  } catch (e) {
+    status("Could not load sessions: " + e.message, "err");
+  }
+}
+
+$("clip").addEventListener("click", async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!t) { status("Clipboard is empty.", "err"); return; }
+    $("txt").value = t;
+    status(`Pasted ${t.length} chars from clipboard.`, "ok");
+  } catch (e) {
+    status("Clipboard read failed: " + e.message + ". Browsers require HTTPS + user gesture.", "err");
+  }
+});
+
+async function send(submit) {
+  const name = $("sess").value;
+  const text = $("txt").value;
+  if (!name) { status("Select a session.", "err"); return; }
+  if (!text) { status("No text to send.", "err"); return; }
+  status("Sending…");
+  try {
+    const r = await api("/api/sessions/" + encodeURIComponent(name) + "/paste",
+      { method: "POST", body: JSON.stringify({ text: text, submit: submit }) });
+    status(`✓ Sent ${r.pasted} chars to ${name}${submit ? " + Enter" : ""}.`, "ok");
+    if (submit) $("txt").value = "";
+  } catch (e) {
+    status("Failed: " + e.message, "err");
+  }
+}
+
+$("send").addEventListener("click", () => send(false));
+$("sendEnter").addEventListener("click", () => send(true));
+
+loadSessions();
+</script>
+</body>
+</html>"""
+            return self._html(html)
+
         # GET /health — lightweight uptime check (no auth required)
         if method == "GET" and path == "/health":
             import resource as _res
