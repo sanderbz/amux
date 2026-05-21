@@ -8199,12 +8199,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   body.light .peek-copy-btn {
     background: rgba(28,33,40,0.85); border-color: rgba(255,255,255,0.2); color: #cdd9e5;
   }
-  /* Connection status — hardcoded neon colors are invisible on white */
-  body.light .conn-status.online  { color: #1a7f37; background: rgba(26,127,55,0.1); }
+  /* Connection status — hardcoded neon colors are invisible on white.
+     Use a stronger tint + slightly darker text to hit WCAG AA on light bg. */
+  body.light .conn-status.online  { color: #0b5a26; background: rgba(26,127,55,0.18); }
   body.light .conn-status.online::before  { background: #1a7f37; }
-  body.light .conn-status.polling { color: #9a6700; background: rgba(154,103,0,0.1); }
+  body.light .conn-status.polling { color: #6b4500; background: rgba(154,103,0,0.18); }
   body.light .conn-status.polling::before { background: #9a6700; }
-  body.light .conn-status.offline { color: #cf222e; background: rgba(207,34,46,0.1); }
+  body.light .conn-status.offline { color: #8a1722; background: rgba(207,34,46,0.18); }
   body.light .conn-status.offline::before { background: #cf222e; }
   /* Board empty placeholder — 50% transparent is invisible on white */
   body.light .board-empty { color: var(--dim) !important; }
@@ -10884,16 +10885,19 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     content: ''; width: 8px; height: 8px; border-radius: 50%;
     flex-shrink: 0; transition: background 0.2s;
   }
+  /* High-contrast chip palette: bright text on near-solid tinted bg
+     so the chip remains legible whether stacked over the page background
+     or an inheriting translucent container. */
   .conn-status.online {
-    color: #4ade80; background: rgba(74,222,128,0.1);
+    color: #86efac; background: rgba(20,83,45,0.55);
   }
   .conn-status.online::before { background: #4ade80; }
   .conn-status.polling {
-    color: #facc15; background: rgba(250,204,21,0.1);
+    color: #fde68a; background: rgba(120,53,15,0.55);
   }
   .conn-status.polling::before { background: #facc15; }
   .conn-status.offline {
-    color: #f87171; background: rgba(248,113,113,0.15);
+    color: #fecaca; background: rgba(127,29,29,0.55);
   }
   .conn-status.offline::before { background: #f87171; }
 
@@ -14356,14 +14360,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     user-select: none;
   }
   .cmd-palette-results li[aria-selected="true"] {
-    background: var(--tint-blue);
-    color: #ffffff;
+    background: color-mix(in srgb, var(--tint-blue) 20%, transparent);
+    color: var(--label-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint-blue) 40%, transparent);
   }
   .cmd-palette-results li[aria-selected="true"] .cmd-result-path {
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--label-secondary);
   }
   .cmd-palette-results li[aria-selected="true"] .cmd-result-dot[data-status="stopped"] {
-    background: rgba(255, 255, 255, 0.55);
+    background: var(--label-tertiary);
   }
   .cmd-result-dot {
     width: 8px; height: 8px;
@@ -14402,7 +14407,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     flex-shrink: 0;
   }
   .cmd-palette-results li[aria-selected="true"] .cmd-result-badge {
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--label-tertiary);
   }
   .cmd-palette-footer {
     padding: var(--s-2) var(--s-4);
