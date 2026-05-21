@@ -20855,10 +20855,21 @@ function _hideScrollLockBadge(scrollEl) {
 async function refreshPeek() {
   const name = peekSession;
   if (!name) return;
+  // When the LiveTerminal is mounted and the WS is connected, the WebSocket
+  // stream is the authoritative source — overwriting #peek-body with polled
+  // HTML would destroy the xterm canvas. Skip the poll entirely.
+  // (We still poll when WS is reconnecting/offline so the user can read the
+  //  last-known snapshot from the cache layer in the catch branch.)
+  if (window._liveTerm && window._liveTerm.isLive && window._liveTerm.isLive()) {
+    return;
+  }
   if (peekSelecting) return;
   const sel = window.getSelection();
   if (sel && sel.toString().length > 0) return;
   const body = document.getElementById('peek-body');
+  // If LiveTerminal owns the body (live-term-host class set), don't overwrite
+  // its innerHTML even if the WS dropped — xterm holds the scroll-back.
+  if (body && body.classList.contains('live-term-host')) return;
   const statusEl = document.getElementById('peek-status');
   try {
     const r = await fetch(API + '/api/sessions/' + name + '/peek?lines=500');
