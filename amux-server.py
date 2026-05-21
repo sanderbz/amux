@@ -36196,6 +36196,7 @@ def _ws_close_payload(code: int = 1000, reason: str = "") -> bytes:
 
 _STREAMER_REPLAY_BYTES = 64 * 1024  # ~last 64 KB of pane output kept for replays
 _STREAMER_FIFO_DIR = "/tmp"
+_MAX_SUBS_PER_SESSION = 8  # cap WS subscribers per session — DoS guard
 
 
 def _streamer_fifo_path(name: str) -> str:
@@ -36431,8 +36432,15 @@ class TmuxStreamer:
 
     # ── Subscribers ──
     def subscribe(self, sub) -> bytes:
-        """Register sub (must have .deliver(bytes)). Returns current replay buffer."""
+        """Register sub (must have .deliver(bytes)). Returns current replay buffer.
+
+        Raises RuntimeError if the per-session subscriber cap is reached so
+        callers can send a clean WS CLOSE 1013 instead of accepting another
+        socket and falling over later.
+        """
         with self.subs_lock:
+            if len(self.subs) >= _MAX_SUBS_PER_SESSION:
+                raise RuntimeError("too many subscribers")
             self.subs.add(sub)
         with self.replay_lock:
             return bytes(self.replay)
@@ -36721,6 +36729,20 @@ class CCHandler(BaseHTTPRequestHandler):
         if upg != "websocket" or "upgrade" not in conn or not key or ver != "13":
             return self._json({"error": "expected WebSocket upgrade"}, 400)
 
+        # Origin allowlist — defense in depth. Browsers don't enforce CORS on
+        # WebSocket handshakes, so a malicious page could otherwise open a WS
+        # from any origin (assuming it had a valid token). Native clients legit
+        # omit Origin entirely; allow that case through.
+        origin = self.headers.get("Origin", "")
+        if origin:
+            from urllib.parse import urlparse as _up
+            host = (_up(origin).hostname or "").lower()
+            allowed = (host in ("localhost", "127.0.0.1", "0.0.0.0")
+                       or host == get_lan_ip()
+                       or host.endswith(".ts.net"))
+            if not allowed:
+                return self._json({"error": "origin not allowed"}, 403)
+
         # Validate session exists (mirrors other session routes).
         env_file = CC_SESSIONS / f"{name}.env"
         if not env_file.exists():
@@ -36773,7 +36795,19 @@ class CCHandler(BaseHTTPRequestHandler):
                     _send(chunk, _WS_OP_BIN)
 
         sub = _Sub()
-        replay = streamer.subscribe(sub)
+        try:
+            replay = streamer.subscribe(sub)
+        except RuntimeError as e:
+            # e.g. per-session subscriber cap reached.
+            try:
+                with send_lock:
+                    sock.sendall(_ws_build_frame(
+                        _ws_close_payload(1013, str(e)[:120]),
+                        opcode=_WS_OP_CLOSE,
+                    ))
+            except OSError:
+                pass
+            return
         # Replay buffer first so the client renders immediately with context.
         if replay:
             _send(replay, _WS_OP_BIN)
