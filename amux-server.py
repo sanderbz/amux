@@ -9710,59 +9710,66 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
   /* Habits */
   .habit-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 14px 16px; margin-bottom: 10px; transition: transform 0.12s, box-shadow 0.12s;
+    background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md);
+    padding: var(--s-4); margin-bottom: var(--s-3);
+    transition: transform var(--duration-fast) var(--ease-standard);
     -webkit-tap-highlight-color: transparent;
   }
   .habit-card:active { transform: scale(0.98); }
-  .habit-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .habit-header { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
   .habit-check {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 2.5px solid var(--border); background: none; cursor: pointer;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2.5px solid var(--sep-opaque); background: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    flex-shrink: 0; font-size: 1.1rem; color: transparent;
+    transition: background var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-fast) var(--ease-emphasized);
+    flex-shrink: 0; color: transparent;
     -webkit-tap-highlight-color: transparent;
   }
+  .habit-check i { width: 22px; height: 22px; stroke-width: 2; }
   .habit-check.done {
-    background: var(--green, #3fb950); border-color: var(--green, #3fb950);
-    color: #fff; transform: scale(1.1);
+    background: var(--tint-green); border-color: var(--tint-green);
+    color: #fff; transform: scale(1.05);
   }
   .habit-check.done.pop { animation: habit-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   @keyframes habit-pop {
-    0% { transform: scale(0.6); } 50% { transform: scale(1.25); } 100% { transform: scale(1.1); }
+    0% { transform: scale(0.6); } 50% { transform: scale(1.20); } 100% { transform: scale(1.05); }
   }
-  .habit-name { font-weight: 600; font-size: 0.95rem; flex: 1; min-width: 0; }
+  .habit-name { font-weight: var(--weight-semibold); font-size: var(--text-callout); color: var(--label-primary); flex: 1; min-width: 0; }
   .habit-streak {
-    font-size: 0.75rem; color: var(--dim); white-space: nowrap;
-    display: flex; align-items: center; gap: 3px;
+    font-size: var(--text-caption1); color: var(--label-secondary); white-space: nowrap;
+    display: flex; align-items: center; gap: 3px; font-weight: var(--weight-medium);
   }
-  .habit-streak.fire { color: var(--orange, #d29922); font-weight: 600; }
+  .habit-streak.fire { color: var(--tint-orange); font-weight: var(--weight-semibold); }
   .habit-dots { display: flex; gap: 3px; }
   .habit-dot {
-    width: 28px; height: 28px; border-radius: 5px;
-    background: rgba(128,128,128,0.1); transition: background 0.15s;
+    width: 28px; height: 28px; border-radius: var(--r-xs);
+    background: var(--bg-tinted); transition: background var(--duration-fast) var(--ease-standard);
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.55rem; color: var(--dim);
+    font-size: var(--text-caption2); color: var(--label-tertiary); font-weight: var(--weight-medium);
   }
-  .habit-dot.filled { background: var(--green, #3fb950); color: transparent; }
-  .habit-dot.today { border: 1.5px solid var(--accent); }
+  .habit-dot.filled { background: var(--tint-green); color: transparent; }
+  .habit-dot.today { border: 1.5px solid var(--tint-blue); }
   .habit-actions {
     display: flex; align-items: center; justify-content: space-between;
-    margin-top: 8px; gap: 8px;
+    margin-top: var(--s-2); gap: var(--s-2);
   }
   .habit-edit-btn {
-    background: none; border: none; color: var(--dim); cursor: pointer;
-    font-size: 0.72rem; padding: 4px 8px; border-radius: 4px;
-    transition: color 0.12s;
+    background: none; border: none; color: var(--label-secondary); cursor: pointer;
+    font-size: var(--text-caption1); padding: var(--s-2); min-width: 44px; min-height: 32px; border-radius: var(--r-xs);
+    transition: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
+    -webkit-tap-highlight-color: transparent;
   }
-  .habit-edit-btn:hover { color: var(--text); }
+  .habit-edit-btn:hover { color: var(--label-primary); background: var(--bg-tinted); }
   .habit-empty {
-    text-align: center; color: var(--dim); padding: 60px 20px; font-size: 0.9rem;
+    text-align: center; color: var(--label-secondary); padding: var(--s-16) var(--s-5); font-size: var(--text-subhead);
+    display: flex; flex-direction: column; align-items: center; gap: var(--s-3);
   }
+  .habit-empty i { width: 36px; height: 36px; color: var(--label-tertiary); }
   @media (max-width: 600px) {
-    .habit-dot { width: 24px; height: 24px; border-radius: 4px; }
-    .habit-check { width: 40px; height: 40px; }
+    .habit-dot { width: 24px; height: 24px; border-radius: var(--r-xs); }
+    .habit-check { width: 44px; height: 44px; }
   }
 
   /* Toast notifications */
@@ -13133,9 +13140,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </div>
 
 <!-- Habits -->
-<div id="habits-view" style="display:none;flex-direction:column;align-items:center;padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+<div id="habits-view" style="display:none;flex-direction:column;align-items:center;padding:var(--s-4) var(--s-3) calc(env(safe-area-inset-bottom) + var(--s-4));overflow-y:auto;-webkit-overflow-scrolling:touch;">
   <div id="habits-container" style="width:100%;max-width:480px;"></div>
-  <button onclick="_habitsAdd()" style="margin-top:12px;background:var(--accent);color:#000;border:none;border-radius:50%;width:48px;height:48px;font-size:1.5rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:transform 0.15s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.9)'" ontouchend="this.style.transform=''">+</button>
+  <button onclick="_habitsAdd()" aria-label="Add habit" style="margin-top:var(--s-4);background:var(--tint-blue);color:#fff;border:none;border-radius:50%;width:56px;height:56px;cursor:pointer;box-shadow:var(--shadow-md);transition:transform var(--duration-fast) var(--ease-emphasized);display:inline-flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;" onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.92)'" ontouchend="this.style.transform=''">
+    <i data-lucide="plus" style="width:24px;height:24px;"></i>
+  </button>
 </div>
 
 <!-- Schedule modal -->
@@ -22871,7 +22880,8 @@ function _habitsRender() {
   const c = document.getElementById('habits-container');
   if (!c) return;
   if (!_habits.length) {
-    c.innerHTML = '<div class="habit-empty">No habits yet.<br>Tap + to add your first one.</div>';
+    c.innerHTML = '<div class="habit-empty"><i data-lucide="check-square"></i><div>No habits yet.<br>Tap + to add your first one.</div></div>';
+    try { window.lucide && lucide.createIcons && lucide.createIcons(); } catch(e) {}
     return;
   }
   const today = _habitsTodayKey();
@@ -22884,10 +22894,13 @@ function _habitsRender() {
     const done = (h.log || []).includes(today);
     const streak = _habitsStreak(h);
     const streakClass = streak >= 7 ? ' fire' : '';
-    const streakIcon = streak >= 30 ? '🔥🔥' : streak >= 7 ? '🔥' : streak >= 3 ? '⚡' : '';
+    const streakIcon = streak >= 30 ? '<i data-lucide="flame" style="width:13px;height:13px;color:var(--tint-orange);"></i>'
+                      : streak >= 7  ? '<i data-lucide="flame" style="width:13px;height:13px;color:var(--tint-orange);"></i>'
+                      : streak >= 3  ? '<i data-lucide="zap" style="width:13px;height:13px;color:var(--tint-yellow);"></i>'
+                      : '';
     return '<div class="habit-card" data-idx="' + idx + '">'
       + '<div class="habit-header">'
-      + '<button class="habit-check' + (done ? ' done' : '') + '" onclick="_habitsToggle(' + idx + ',this)" aria-label="Toggle">' + (done ? '✓' : '') + '</button>'
+      + '<button class="habit-check' + (done ? ' done' : '') + '" onclick="_habitsToggle(' + idx + ',this)" aria-label="Toggle">' + (done ? '<i data-lucide="check"></i>' : '') + '</button>'
       + '<span class="habit-name">' + esc(h.name) + '</span>'
       + '<span class="habit-streak' + streakClass + '">' + streakIcon + ' ' + streak + 'd</span>'
       + '</div>'
@@ -22897,11 +22910,12 @@ function _habitsRender() {
           return '<div class="habit-dot' + (filled ? ' filled' : '') + (d.isToday ? ' today' : '') + '">' + d.label + '</div>';
         }).join('') + '</div>'
       + '<div style="display:flex;gap:2px;">'
-      + '<button class="habit-edit-btn" onclick="_habitsEdit(' + idx + ')">edit</button>'
-      + '<button class="habit-edit-btn" onclick="_habitsDelete(' + idx + ')" style="color:var(--red,#f85149);">delete</button>'
+      + '<button class="habit-edit-btn" onclick="_habitsEdit(' + idx + ')">Edit</button>'
+      + '<button class="habit-edit-btn" onclick="_habitsDelete(' + idx + ')" style="color:var(--tint-red);">Delete</button>'
       + '</div>'
       + '</div></div>';
   }).join('');
+  try { window.lucide && lucide.createIcons && lucide.createIcons(); } catch(e) {}
 }
 
 function _habitsStreak(h) {
