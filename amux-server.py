@@ -10178,10 +10178,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     /* Strip every non-essential chrome row at peek detent: only header,
        terminal canvas and input row should be visible. The accessory
        bar, focus-subtab-pill, voice-status, attachments, and any sub-
-       tab chrome each eat 40–56px — at 30vh that's the whole canvas. */
+       tab chrome each eat 40–56px — at 30vh that's the whole canvas.
+       NOTE: do NOT display:none .focus-search-bar — it occupies row 3
+       of the focus-shell grid (auto auto auto 1fr auto), and removing
+       it from flow slides the canvas up into the auto row, leaving the
+       1fr to be claimed by the dock (which then balloons to 192px).
+       Visibility:hidden keeps the row but hides the content. */
     #peek-overlay.focus-shell.ios-sheet--peek .focus-accessory,
     #peek-overlay.focus-shell.ios-sheet--peek .focus-subtab-pill,
-    #peek-overlay.focus-shell.ios-sheet--peek .focus-search-bar,
     #peek-overlay.focus-shell.ios-sheet--peek .voice-status,
     #peek-overlay.focus-shell.ios-sheet--peek .peek-attach-bar:empty {
       display: none !important;
