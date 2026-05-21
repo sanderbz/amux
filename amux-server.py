@@ -14237,7 +14237,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .card .header-icon-btn,
     .session-card .header-icon-btn,
     .focus-kbd-btn,
-    .palette-mobile-btn {
+    .palette-mobile-btn,
+    .peek-copy-btn,
+    .focus-subtab-pill,
+    .dock-plus, .dock-send,
+    .bd-tab,
+    .btn {
       min-width: 44px; min-height: 44px;
     }
     .search-input { min-height: 44px; }
