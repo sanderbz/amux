@@ -13435,37 +13435,45 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
-<!-- Peek overlay -->
-<div id="peek-overlay" class="overlay">
-  <div class="overlay-header" style="flex-direction:column;gap:6px;padding-bottom:10px;">
-    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-      <h2 id="peek-title" style="margin:0;font-size:1.05rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">peek</h2>
-      <span id="peek-session-status"></span>
-      <span id="peek-model-badge" style="font-size:0.75rem;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.06);color:var(--dim);border:1px solid var(--border);white-space:nowrap;"></span>
+<!-- Peek overlay — iOS-native focus shell -->
+<div id="peek-overlay" class="overlay focus-shell" role="dialog" aria-modal="true" aria-labelledby="peek-title">
+  <!-- iOS-style 44pt header -->
+  <header class="focus-header">
+    <button class="focus-icon-btn focus-back" onclick="closePeek()" aria-label="Back to sessions" title="Back">
+      <i data-lucide="chevron-left"></i>
+    </button>
+    <div class="focus-title-wrap">
+      <span class="focus-status-dot" id="peek-session-status" aria-hidden="true"></span>
+      <h2 class="focus-title" id="peek-title">peek</h2>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div class="peek-find-wrap" id="peek-search-wrap">
-        <input class="search-input" id="peek-search" type="text" placeholder="Find..." autocomplete="off" autocorrect="off"
-          oninput="peekSearchQuery=this.value;document.getElementById('peek-search-wrap').classList.toggle('has-value',!!this.value);applyPeekSearch()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?peekSearchPrev():peekSearchNext();}">
-        <span class="peek-find-count" id="peek-search-count"></span>
-        <button class="peek-nav-btn" onclick="peekSearchPrev()" title="Previous match (Shift+Enter)">&#x2191;</button>
-        <button class="peek-nav-btn" onclick="peekSearchNext()" title="Next match (Enter)">&#x2193;</button>
-        <button class="search-clear" onclick="event.stopPropagation();clearPeekSearch()">&#x2715;</button>
-      </div>
-      <button class="btn peek-split-btn" id="peek-split-toggle" onclick="togglePeekSplit()" title="Split: file browser">&#x1F4C2;</button>
-      <button class="btn" onclick="togglePeekFocus()" id="peek-focus-btn" title="Focus mode — hide controls">&#x25B4;</button>
-      <button class="btn" onclick="closePeek()">Close</button>
+    <button class="focus-icon-btn focus-more" onclick="openFocusSheet()" aria-label="More options" title="More">
+      <i data-lucide="more-horizontal"></i>
+    </button>
+  </header>
+
+  <!-- Slide-down search bar (Cmd+F / iOS Mail pattern) — hidden by default -->
+  <div class="focus-search-bar" id="peek-search-wrap" role="search">
+    <div class="peek-find-wrap focus-find-wrap">
+      <i data-lucide="search" class="focus-search-icon"></i>
+      <input class="focus-search-input" id="peek-search" type="text" placeholder="Find in terminal" autocomplete="off" autocorrect="off"
+        oninput="peekSearchQuery=this.value;document.getElementById('peek-search-wrap').classList.toggle('has-value',!!this.value);applyPeekSearch()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?peekSearchPrev():peekSearchNext();}else if(event.key==='Escape'){event.preventDefault();closeFocusSearch();}">
+      <span class="peek-find-count" id="peek-search-count"></span>
+      <button class="peek-nav-btn focus-search-btn" onclick="peekSearchPrev()" aria-label="Previous match"><i data-lucide="chevron-up"></i></button>
+      <button class="peek-nav-btn focus-search-btn" onclick="peekSearchNext()" aria-label="Next match"><i data-lucide="chevron-down"></i></button>
+      <button class="search-clear focus-search-close" onclick="closeFocusSearch()" aria-label="Close search"><i data-lucide="x"></i></button>
     </div>
   </div>
-  <!-- Focus mode minimal bar (visible only in focus mode) -->
-  <div class="peek-focus-bar" id="peek-focus-bar">
+
+  <!-- Legacy focus-mode bar (kept for togglePeekFocus() compatibility, hidden by default) -->
+  <div class="peek-focus-bar legacy-focus-bar" id="peek-focus-bar" hidden>
     <h3 id="peek-focus-title"></h3>
-    <button class="btn" onclick="togglePeekFocus()" title="Show controls">&#x25BE; Expand</button>
+    <button class="btn" onclick="togglePeekFocus()">&#x25BE; Expand</button>
     <button class="btn" onclick="closePeek()">Close</button>
   </div>
-  <!-- Tab bar -->
-  <div class="peek-tabs">
+
+  <!-- Legacy multi-row sub-tabs — hidden but kept so setPeekTab()/badges still wire up -->
+  <div class="peek-tabs legacy-peek-tabs" hidden aria-hidden="true">
     <button class="peek-tab active" id="peek-tab-terminal" onclick="setPeekTab('terminal')">Terminal</button>
     <button class="peek-tab" id="peek-tab-steering" onclick="setPeekTab('steering')">Steering<span class="peek-tab-count" id="peek-tab-steering-count"></span></button>
     <button class="peek-tab" id="peek-tab-issues" onclick="setPeekTab('issues')">Issues</button>
@@ -13474,57 +13482,117 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     <button class="peek-tab" id="peek-tab-schedules" onclick="setPeekTab('schedules')">Schedules<span class="peek-tab-count" id="peek-tab-schedules-count"></span></button>
     <button class="peek-tab" id="peek-tab-notes" onclick="setPeekTab('notes')">Notes<span class="peek-tab-count" id="peek-tab-notes-count"></span></button>
   </div>
-  <!-- Working directory bar -->
-  <div class="peek-dir-bar">
-    <span style="flex-shrink:0;opacity:0.6;">&#x1F4C1;</span>
-    <span id="peek-dir-text" onclick="peekSessionDir&&openExplore(peekSessionDir,peekSession)" title="Browse directory" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--dim);text-underline-offset:2px;"></span>
-    <span class="card-dir-edit" onclick="peekSessionDir&&_copyFileDeeplink(peekSessionDir)" title="Copy link to this directory" style="opacity:0.6;font-size:0.85rem;">&#x1F517;</span>
-    <span class="card-dir-edit" id="peek-dir-edit" onclick="editField(peekSession,'dir',peekSessionDir)" title="Change directory">&#x270E;</span>
+
+  <!-- Legacy working-dir bar — hidden but peek-dir-text still updates -->
+  <div class="peek-dir-bar legacy-peek-dir-bar" hidden aria-hidden="true">
+    <span id="peek-dir-text"></span>
+    <span class="card-dir-edit" id="peek-dir-edit" onclick="editField(peekSession,'dir',peekSessionDir)">&#x270E;</span>
   </div>
-  <!-- Split wrap: terminal + optional file browser side-by-side -->
-  <div id="peek-split-wrap" class="peek-split-wrap">
-  <!-- Terminal panel -->
-  <div id="peek-terminal-panel" class="peek-terminal-panel">
-    <div style="position:relative;flex:1;min-height:0;">
-      <div id="peek-body" class="overlay-body" style="position:absolute;inset:0;"></div>
-      <button class="peek-copy-btn" id="peek-copy-btn" onclick="copyPeekContent()" title="Copy all">&#x2398; Copy</button>
-    </div>
-    <div id="peek-status" class="overlay-status"></div>
-    <div class="peek-cmd-bar">
-      <button class="peek-cmd-toggle" id="peek-cmd-toggle" onclick="togglePeekCmd()">&#x25BC; Send command</button>
-      <div class="peek-cmd-row open" id="peek-cmd-row" style="flex-wrap:wrap;">
-        <div class="voice-status" id="voice-status"><span id="voice-status-text"></span></div>
-        <div class="chips" style="width:100%;margin:0;" id="peek-chips"></div>
-        <!-- Attachment chips -->
-        <div class="peek-attach-bar" id="peek-attach-bar"></div>
-        <!-- Input row -->
-        <div class="ac-wrap" style="flex:1;min-width:0;position:relative;">
-          <textarea class="send-input" id="peek-cmd-input" rows="1" placeholder="Type a message or drop a file..."
-            autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"
-            enterkeyhint="enter" style="width:100%;"
-            oninput="autoGrow(this);slashAcUpdate();cmdHistoryReset()" onkeydown="slashAcKeydown(event)"
-            onpaste="handlePeekPaste(event)"></textarea>
-          <div id="slash-ac-list" class="ac-list slash-ac"></div>
+
+  <!-- Sub-tab pill: shows when a non-terminal tab is active; tap returns to picker -->
+  <div class="focus-subtab-pill" id="focus-subtab-pill" hidden onclick="openFocusSheet()" role="button" tabindex="0">
+    <i data-lucide="chevron-down"></i>
+    <span id="focus-subtab-pill-label">Terminal</span>
+  </div>
+
+  <!-- Body canvas (terminal + sub-panels live here) -->
+  <main class="focus-canvas">
+    <!-- Split wrap: terminal + optional file browser side-by-side -->
+    <div id="peek-split-wrap" class="peek-split-wrap focus-canvas-fill">
+      <div id="peek-terminal-panel" class="peek-terminal-panel">
+        <div class="focus-terminal-wrap">
+          <div id="peek-body" class="overlay-body focus-terminal"></div>
+          <button class="peek-copy-btn focus-copy-btn" id="peek-copy-btn" onclick="copyPeekContent()" title="Copy all">
+            <i data-lucide="copy"></i>
+          </button>
         </div>
-        <input type="file" id="peek-file-input" multiple
-          style="position:absolute;width:0;height:0;opacity:0;overflow:hidden;pointer-events:none;" onchange="handlePeekFileInput(event)">
-        <button class="peek-attach-btn" title="Attach file" onclick="document.getElementById('peek-file-input').click()">&#128206;</button>
-        <button class="peek-attach-btn" id="peek-hist-btn" onclick="openCmdHistoryModal()" title="Message history">&#x1F551;</button>
-        <div class="send-split"><button class="btn primary send-split-main" onclick="sendPeekCmd()">Send</button><button class="btn primary send-split-arrow" onclick="_toggleSendMode(event)" title="Switch send mode">&#x25BC;</button></div>
+        <div id="peek-status" class="overlay-status focus-status-line" hidden></div>
       </div>
-      <!-- Drag-over hint (shown by CSS when drag-over class is on peek-overlay) -->
-      <div class="peek-drag-hint" style="display:none;">&#128206; Drop to attach</div>
+      <!-- Split files panel (desktop only — opened via overflow sheet) -->
+      <div id="peek-split-files" class="peek-split-files">
+        <div class="peek-split-files-header">
+          <div id="psf-breadcrumb" style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"></div>
+          <button class="btn" style="font-size:0.7rem;padding:2px 8px;" onclick="togglePeekSplit()">&#x2715;</button>
+        </div>
+        <div id="psf-body" class="peek-split-files-body"></div>
+      </div>
+      <!-- Hidden split toggle (called by overflow sheet via compatibility shim) -->
+      <button id="peek-split-toggle" onclick="togglePeekSplit()" hidden aria-hidden="true"></button>
+    </div>
+  </main>
+
+  <!-- Docked input dock (always at bottom) -->
+  <div class="focus-dock peek-cmd-bar" id="peek-dock">
+    <!-- Slash menu popover renders ABOVE the input when active -->
+    <div id="slash-ac-list" class="ac-list slash-ac focus-slash-menu"></div>
+
+    <!-- Keyboard accessory: only visible WHEN input is focused — quick keys -->
+    <div class="focus-accessory" id="focus-accessory" hidden>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('Up')" aria-label="Arrow up">&#x2191;</button>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('Down')" aria-label="Arrow down">&#x2193;</button>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('Enter')">Enter</button>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('Escape')">Esc</button>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('Tab')">Tab</button>
+      <button class="focus-kbd-btn focus-kbd-danger" onclick="peekQuickKeys('C-c')">Ctrl-C</button>
+      <button class="focus-kbd-btn" onclick="peekQuickKeys('C-u')">Ctrl-U</button>
+    </div>
+
+    <!-- Voice + attachment chips -->
+    <div class="voice-status" id="voice-status"><span id="voice-status-text"></span></div>
+    <div class="peek-attach-bar focus-attach-bar" id="peek-attach-bar"></div>
+
+    <!-- Legacy always-on chip rail (hidden — chips now live in the + sheet) -->
+    <div class="chips legacy-peek-chips" id="peek-chips" hidden aria-hidden="true"></div>
+
+    <!-- Hidden helpers preserved for legacy JS -->
+    <input type="file" id="peek-file-input" multiple style="position:absolute;width:0;height:0;opacity:0;overflow:hidden;pointer-events:none;" onchange="handlePeekFileInput(event)">
+    <button class="peek-cmd-toggle" id="peek-cmd-toggle" onclick="togglePeekCmd()" hidden aria-hidden="true"></button>
+
+    <!-- Input row — Claude/Messages pattern: [+] [textarea growing] [send] -->
+    <div class="peek-cmd-row open dock-input-row" id="peek-cmd-row">
+      <button class="dock-plus" onclick="openDockPlusSheet()" aria-label="Quick actions">
+        <i data-lucide="plus"></i>
+      </button>
+      <div class="ac-wrap dock-input-wrap">
+        <textarea class="send-input textarea-ios dock-textarea" id="peek-cmd-input" rows="1"
+          placeholder="Send a message…"
+          autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"
+          enterkeyhint="send"
+          oninput="autoGrow(this);slashAcUpdate();cmdHistoryReset();_dockSyncSend()"
+          onkeydown="slashAcKeydown(event)"
+          onpaste="handlePeekPaste(event)"
+          onfocus="_dockOnInputFocus()"
+          onblur="_dockOnInputBlur()"></textarea>
+      </div>
+      <button class="dock-send" id="dock-send" onclick="sendPeekCmd()" disabled aria-label="Send">
+        <i data-lucide="arrow-up"></i>
+      </button>
+    </div>
+
+    <!-- Drag-over hint -->
+    <div class="peek-drag-hint" style="display:none;">&#128206; Drop to attach</div>
+  </div>
+
+  <!-- Bottom sheet (sub-tabs + actions, opened by ··· button) -->
+  <div class="focus-sheet" id="focus-sheet" data-state="closed" aria-hidden="true">
+    <div class="focus-sheet-backdrop" onclick="closeFocusSheet()"></div>
+    <div class="focus-sheet-surface" role="dialog" aria-label="Focus options">
+      <div class="focus-sheet-grabber" aria-hidden="true"></div>
+      <ul class="focus-sheet-list" id="focus-sheet-list"></ul>
     </div>
   </div>
-  <!-- Split files panel -->
-  <div id="peek-split-files" class="peek-split-files">
-    <div class="peek-split-files-header">
-      <div id="psf-breadcrumb" style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"></div>
-      <button class="btn" style="font-size:0.7rem;padding:2px 8px;" onclick="togglePeekSplit()">&#x2715;</button>
+
+  <!-- Bottom sheet (quick actions, opened by + button) -->
+  <div class="focus-sheet" id="dock-plus-sheet" data-state="closed" aria-hidden="true">
+    <div class="focus-sheet-backdrop" onclick="closeDockPlusSheet()"></div>
+    <div class="focus-sheet-surface" role="dialog" aria-label="Quick actions">
+      <div class="focus-sheet-grabber" aria-hidden="true"></div>
+      <ul class="focus-sheet-list" id="dock-plus-sheet-list"></ul>
     </div>
-    <div id="psf-body" class="peek-split-files-body"></div>
   </div>
-  </div><!-- /peek-split-wrap -->
+
+  <!-- Hidden compatibility shim — #peek-model-badge updated by updatePeekStatus(), surfaced in overflow sheet -->
+  <span id="peek-model-badge" hidden aria-hidden="true"></span>
   <!-- Steering queue panel -->
   <div id="peek-steering-panel" class="peek-tasks-panel">
     <div class="peek-tasks-add" style="gap:10px;">
