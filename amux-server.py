@@ -36772,11 +36772,15 @@ class CCHandler(BaseHTTPRequestHandler):
             return
         self._resp_status = 101
 
-        # Per-connection write lock — reader thread (fan-out) and this thread
-        # (close/pong) must not interleave frames.
+        # Per-connection write lock — reader thread (fan-out), writer thread,
+        # and this thread (close/pong) must not interleave frames.
         send_lock = threading.Lock()
         alive = threading.Event()
         alive.set()
+        # Pong tracking for keepalive — if the client stops responding to our
+        # pings, we tear down within ~30 s instead of waiting for kernel
+        # TCP keepalive (default ~2 h on Linux).
+        last_pong = [time.monotonic()]
 
         def _send(payload: bytes, opcode: int = _WS_OP_BIN) -> None:
             if not alive.is_set():
@@ -36787,12 +36791,44 @@ class CCHandler(BaseHTTPRequestHandler):
                 except OSError:
                     alive.clear()
 
+        # Per-subscriber bounded outbound queue + writer thread. Decouples
+        # the streamer's single fan-out thread from any one slow client so
+        # one bad peer can't stall delivery to everyone else (or back up the
+        # fifo into tmux's pty buffer).
+        import queue as _q
+        _SUB_QUEUE_MAX = 256
+        outq: "_q.Queue[bytes]" = _q.Queue(maxsize=_SUB_QUEUE_MAX)
+
+        def _writer_loop():
+            while alive.is_set():
+                try:
+                    chunk = outq.get(timeout=1.0)
+                except _q.Empty:
+                    continue
+                if chunk is None:  # sentinel
+                    return
+                _send(chunk, _WS_OP_BIN)
+
+        writer_thread = threading.Thread(
+            target=_writer_loop, name=f"ws-writer-{name}", daemon=True,
+        )
+        writer_thread.start()
+
         class _Sub:
-            """Subscriber the streamer calls .deliver() on for every chunk."""
+            """Subscriber the streamer calls .deliver() on for every chunk.
+
+            Non-blocking — pushes onto the per-sub queue. On overflow (slow
+            client), we drop the sub by clearing `alive` instead of stalling
+            the streamer's fan-out thread.
+            """
             __slots__ = ()
             def deliver(self, chunk: bytes) -> None:
-                if alive.is_set():
-                    _send(chunk, _WS_OP_BIN)
+                if not alive.is_set():
+                    return
+                try:
+                    outq.put_nowait(chunk)
+                except _q.Full:
+                    alive.clear()
 
         sub = _Sub()
         try:
@@ -36811,6 +36847,34 @@ class CCHandler(BaseHTTPRequestHandler):
         # Replay buffer first so the client renders immediately with context.
         if replay:
             _send(replay, _WS_OP_BIN)
+
+        # Keepalive: server-side PING every 20 s. If we haven't seen a PONG
+        # for 30 s, mark the connection dead so the inbound loop tears down
+        # and the streamer drops this sub. Catches half-open TCP / suspended
+        # laptops / NAT timeouts that would otherwise sit as phantom subs.
+        _PING_INTERVAL = 20.0
+        _PONG_TIMEOUT = 30.0
+
+        def _ping_loop():
+            while alive.wait(0) and alive.is_set():
+                # Sleep in short chunks so we exit fast on alive.clear().
+                for _ in range(int(_PING_INTERVAL * 10)):
+                    if not alive.is_set():
+                        return
+                    time.sleep(0.1)
+                if not alive.is_set():
+                    return
+                if time.monotonic() - last_pong[0] > _PONG_TIMEOUT:
+                    alive.clear()
+                    try: sock.shutdown(socket.SHUT_RDWR)
+                    except OSError: pass
+                    return
+                _send(b"", _WS_OP_PING)
+
+        ping_thread = threading.Thread(
+            target=_ping_loop, name=f"ws-ping-{name}", daemon=True,
+        )
+        ping_thread.start()
 
         try:
             # Inbound loop — read JSON control messages from client.
@@ -36833,6 +36897,7 @@ class CCHandler(BaseHTTPRequestHandler):
                     _send(payload, _WS_OP_PONG)
                     continue
                 if opcode == _WS_OP_PONG:
+                    last_pong[0] = time.monotonic()
                     continue
                 if opcode == _WS_OP_TEXT:
                     try:
@@ -36844,6 +36909,11 @@ class CCHandler(BaseHTTPRequestHandler):
                 # Binary input from client — not currently used; ignore.
         finally:
             alive.clear()
+            # Wake the writer thread so it exits promptly.
+            try:
+                outq.put_nowait(None)
+            except Exception:
+                pass
             try:
                 streamer.unsubscribe(sub)
             except Exception:
