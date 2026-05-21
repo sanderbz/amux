@@ -8304,6 +8304,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     transition: border-color 0.15s; overflow: hidden;
     -webkit-tap-highlight-color: transparent; min-width: 0;
     user-select: text; -webkit-user-select: text;
+    /* v2: relative so .card-hover-hint can anchor */
+    position: relative;
   }
   .card:active { border-color: var(--accent); }
   .card-header { display: flex; flex-direction: column; gap: 4px; position: relative; min-width: 0; cursor: default; }
@@ -8456,6 +8458,137 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .branch-popover input { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
   .branch-popover-actions { display: flex; gap: 6px; }
   .card-preview { color: var(--dim); font-size: 0.78rem; margin-top: 4px; margin-left: 20px; font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* ══════════════════════════════════════════════════════════════════════
+     LIVE MINI-TERMINAL CARDS (v2 — second 100x improvement)
+     Each session card becomes a tiny live terminal with hover-to-type
+     and pulse-when-waiting. Class names are unique to avoid collisions
+     with the palette agent's concurrent edits.
+     ══════════════════════════════════════════════════════════════════════ */
+  .card-mini-term {
+    color: var(--dim); font-size: 0.72rem;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+    white-space: pre; overflow: hidden;
+    background: rgba(1,4,9,0.55); border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 8px; line-height: 1.4;
+    height: 152px; max-height: 152px;
+    position: relative;
+    will-change: transform;
+    cursor: pointer;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
+  }
+  body.light .card-mini-term { background: #1c2128; color: #cdd9e5; }
+  .card-mini-term-body { display: block; pointer-events: none; }
+  .card-mini-term[data-empty="1"]::after {
+    content: "(no output yet)";
+    position: absolute; inset: 50% 0 auto 0;
+    text-align: center; transform: translateY(-50%);
+    color: var(--dim); opacity: 0.6; font-style: italic;
+    pointer-events: none;
+  }
+  .card-mini-term-caret {
+    display: inline-block;
+    width: 7px; height: 12px; vertical-align: -2px;
+    margin-left: 2px; background: var(--cyan, #39d2c0);
+    opacity: 0; animation: card-mini-caret-blink 1.05s steps(2) infinite;
+    border-radius: 1px;
+  }
+  @keyframes card-mini-caret-blink { 0%, 50% { opacity: 0.9; } 50.01%, 100% { opacity: 0; } }
+
+  .card-status-dot {
+    flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+    background: transparent; margin-right: 2px;
+    transition: background 200ms ease, transform 200ms ease;
+  }
+  .card-status-dot[data-status="running"],
+  .card-status-dot[data-status="active"]  { background: #3fb950; }
+  .card-status-dot[data-status="waiting"] {
+    background: #0a84ff;
+    animation: card-status-pulse 2s ease-in-out infinite;
+  }
+  .card-status-dot[data-status="idle"]    { background: rgba(139,148,158,0.5); }
+  .card-status-dot[data-status="error"]   { background: #f85149; }
+  .card-status-dot[data-status="stopped"] { background: rgba(139,148,158,0.3); border: 1px solid rgba(139,148,158,0.5); }
+  @keyframes card-status-pulse {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50%      { opacity: 1.0;  transform: scale(1.4); }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .card {
+      transition: transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+                  box-shadow 180ms cubic-bezier(0.32, 0.72, 0, 1),
+                  border-color 0.15s;
+      will-change: transform;
+    }
+    .card:hover {
+      transform: scale(1.025);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+      z-index: 2;
+    }
+    .card:active { transform: scale(0.992); }
+    .card.hover-ready {
+      box-shadow: 0 10px 32px rgba(10,132,255,0.18), 0 0 0 1px rgba(10,132,255,0.35);
+    }
+    .card.hover-typing {
+      box-shadow: 0 0 0 2px #0a84ff, 0 12px 36px rgba(10,132,255,0.28);
+      transform: scale(1.025);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card:hover { transform: none; }
+  }
+
+  .card-hover-hint {
+    position: absolute; bottom: 10px; right: 14px;
+    font-size: 0.68rem; color: var(--dim, #8b949e);
+    background: rgba(1,4,9,0.6); padding: 3px 8px; border-radius: 999px;
+    border: 1px solid rgba(139,148,158,0.25);
+    pointer-events: none; opacity: 0; transform: translateY(4px);
+    transition: opacity 150ms ease, transform 150ms ease;
+    z-index: 3; font-family: var(--font-sans, -apple-system, system-ui);
+    letter-spacing: 0.01em; max-width: calc(100% - 28px); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  body.light .card-hover-hint { background: rgba(255,255,255,0.9); color: #57606a; border-color: rgba(31,35,40,0.15); }
+  .card.hover-ready .card-hover-hint { opacity: 1; transform: translateY(0); }
+  .card.hover-typing .card-hover-hint {
+    opacity: 1; transform: translateY(0);
+    background: rgba(10,132,255,0.18); color: #58a6ff;
+    border-color: rgba(10,132,255,0.5);
+  }
+  .card-hover-hint .hover-buffer {
+    color: #fff; font-family: ui-monospace, "SF Mono", monospace;
+    background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px;
+    margin-left: 4px; max-width: 18ch; overflow: hidden; text-overflow: ellipsis;
+    display: inline-block; vertical-align: middle;
+  }
+  body.light .card-hover-hint .hover-buffer { color: var(--text, #1f2328); background: rgba(31,35,40,0.06); }
+
+  .card.attention-waiting {
+    border-color: rgba(10,132,255,0.45);
+    animation: card-attention-pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes card-attention-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(10,132,255, 0.0); }
+    50%      { box-shadow: 0 0 0 6px rgba(10,132,255, 0.20); }
+  }
+  .card.attention-waiting:hover,
+  .card.attention-waiting.hover-typing { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .card.attention-waiting { animation: none; box-shadow: 0 0 0 2px rgba(10,132,255,0.35); }
+  }
+
+  .card.attention-error {
+    border-color: #f85149;
+    box-shadow: 0 0 0 1px rgba(248,81,73,0.35);
+  }
+
+  @media (max-width: 600px) {
+    .card-mini-term { height: 112px; max-height: 112px; font-size: 0.7rem; }
+    .card-hover-hint { display: none; }
+  }
+
   .card-preview-lines {
     color: var(--dim); font-size: 0.75rem; font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
     white-space: pre; overflow: hidden;
@@ -17639,11 +17772,23 @@ function render() {
     const flagModel = modelMatch ? modelMatch[1] : null;
     const model = flagModel || s.active_model || null;
     const shortModel = model ? model.replace(/^claude-/, '').replace(/-\d{8}$/, '') : null;
+    // v2: live mini-terminal status hints — derive status + attention so CSS
+    // pulse + status-dot work without further JS.
+    let _miniStatus = 'idle';
+    if (!s.running) _miniStatus = 'stopped';
+    else if (s.status === 'active' || s.status === 'running') _miniStatus = 'running';
+    else if (s.status === 'waiting') _miniStatus = 'waiting';
+    else if (s.status === 'idle') _miniStatus = 'idle';
+    let _miniAttn = '';
+    if (s.running && s.status === 'waiting') _miniAttn = 'attention-waiting';
+    else if (s.rate_limited_until && s.rate_limited_until * 1000 > Date.now()) _miniAttn = 'attention-error';
+    const _miniLines = (s.preview_lines || []).slice(-12).map(l => esc(l)).join('\n');
     return `
-    <div class="card ${isExp ? 'expanded' : ''}" data-session="${esc(s.name)}" onclick="event.stopPropagation();toggle('${s.name}')">
+    <div class="card ${isExp ? 'expanded' : ''} ${_miniAttn}" data-session="${esc(s.name)}" data-status="${_miniStatus}" data-running="${s.running ? '1' : '0'}" onclick="event.stopPropagation();toggle('${s.name}')">
       <div class="card-header" onclick="headerTap('${s.name}', event)" onmousedown="tileMouseDown(event,'${s.name}')">
         <div class="card-header-top">
           <div class="card-drag-handle" title="Drag to reorder"><svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg></div>
+          <span class="card-status-dot" data-status="${_miniStatus}" aria-label="${_miniStatus}"></span>
           <div class="card-name">${s.pinned ? '<span class="pin-icon">&#x1F4CC;</span> ' : ''}${esc(s.name)}</div>
           <button class="card-menu-btn" onclick="event.stopPropagation();toggleMenu('${s.name}')" title="Options">&#x22EF;</button>
           <div class="card-menu" id="menu-${s.name}">
@@ -17700,6 +17845,7 @@ function render() {
         ${model ? `<span class="badge model">${esc(model)}</span>` : ''}
         ${s.tags.map(t => `<span class="tag" data-tag="${esc(t)}" onclick="event.stopPropagation();toggleTagFilter('${esc(t)}')">${esc(t)}</span>`).join('')}
       </div>` : ''}
+      ${s.running ? `<div class="card-mini-term" data-mini-term="${esc(s.name)}" data-empty="${_miniLines ? '0' : '1'}" onclick="event.stopPropagation();openPeek('${s.name}')"><span class="card-mini-term-body">${_miniLines}</span></div>` : ''}
       ${!s.running ? `<div style="padding:6px 0 2px;" onclick="event.stopPropagation()">
         <button class="btn primary" style="width:100%;" onclick="doStart('${s.name}')">&#x25B6; Start</button>
       </div>` : ''}
@@ -17709,7 +17855,6 @@ function render() {
           ${s.session_created ? `<div class="timing-item"><span class="timing-label">Session</span><span class="timing-value">${fmtDuration(Math.floor(Date.now()/1000) - s.session_created)}</span></div>` : ''}
           ${s.task_time ? `<div class="timing-item"><span class="timing-label">Task</span><span class="timing-value accent">${esc(s.task_time)}</span></div>` : ''}
         </div>` : ''}
-        ${s.preview_lines && s.preview_lines.length ? `<div class="card-preview-lines" onclick="event.stopPropagation();openPeek('${s.name}')" style="cursor:pointer;">${rewriteLocalhostUrls(s.preview_lines.map(l => esc(l)).join('\n'))}</div>` : ''}
         <div class="card-stats" id="stats-${s.name}"></div>
         ${s.running ? `
         <div class="chips" id="card-chips-${s.name}"></div>
@@ -17723,6 +17868,7 @@ function render() {
           <button class="btn primary" onclick="sendFromInput('${s.name}')">Send</button>
         </div>` : ''}
       </div>
+      ${s.running ? `<div class="card-hover-hint" aria-hidden="true"><span class="hover-label">type to send</span><span class="hover-buffer"></span> <span class="hover-arrow">&rarr;</span></div>` : ''}
     </div>`;
   }
 
@@ -36313,6 +36459,190 @@ class CCHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _handle_ws_session(self, name: str):
+        """GET /ws/sessions/{name} — bidirectional WebSocket pty stream.
+
+        Wire protocol (matches FROM_SCRATCH_VISION.md §1 and the LiveTerminal
+        frontend already shipped in commit baa77b9):
+
+          server → client : binary frames carrying raw tmux pane bytes
+                            (preserves ANSI/SGR sequences for xterm.js)
+          client → server : text frames containing one JSON object:
+            {"type":"input","data":"<text>"}    literal paste, no Enter
+            {"type":"key",  "data":"<key>"}     tmux key name: Enter, BSpace,
+                                                C-c, Tab, Up, F5, etc.
+            {"type":"resize","cols":N,"rows":N} resize the tmux window
+            {"type":"ping"}                     optional liveness probe
+
+        Replay: on connect we send the last ≤64 KB of pane output so the
+        terminal renders instantly with context — same UX as opening tmux
+        on an existing session.
+        """
+        # Always force-close after we surrender the socket.
+        self.close_connection = True
+
+        # Validate WebSocket upgrade headers (RFC 6455 §4.1).
+        upg  = self.headers.get("Upgrade", "").lower()
+        conn = self.headers.get("Connection", "").lower()
+        key  = self.headers.get("Sec-WebSocket-Key", "")
+        ver  = self.headers.get("Sec-WebSocket-Version", "")
+        if upg != "websocket" or "upgrade" not in conn or not key or ver != "13":
+            return self._json({"error": "expected WebSocket upgrade"}, 400)
+
+        # Validate session exists (mirrors other session routes).
+        env_file = CC_SESSIONS / f"{name}.env"
+        if not env_file.exists():
+            return self._json({"error": f"session '{name}' not found"}, 404)
+
+        # Spin up (or fetch) the streamer. If the tmux session isn't running
+        # we still complete the handshake but immediately close so the client
+        # gets a clean error instead of a TCP reset.
+        sock = self.connection
+        try:
+            streamer = TmuxStreamer.get(name)
+        except RuntimeError as e:
+            try:
+                sock.sendall(_ws_handshake_response(key))
+                sock.sendall(_ws_build_frame(
+                    _ws_close_payload(1011, str(e)[:120]), opcode=_WS_OP_CLOSE,
+                ))
+            except OSError:
+                pass
+            self._resp_status = 101
+            return
+
+        # Complete the handshake.
+        try:
+            sock.sendall(_ws_handshake_response(key))
+        except OSError:
+            return
+        self._resp_status = 101
+
+        # Per-connection write lock — reader thread (fan-out) and this thread
+        # (close/pong) must not interleave frames.
+        send_lock = threading.Lock()
+        alive = threading.Event()
+        alive.set()
+
+        def _send(payload: bytes, opcode: int = _WS_OP_BIN) -> None:
+            if not alive.is_set():
+                return
+            with send_lock:
+                try:
+                    sock.sendall(_ws_build_frame(payload, opcode))
+                except OSError:
+                    alive.clear()
+
+        class _Sub:
+            """Subscriber the streamer calls .deliver() on for every chunk."""
+            __slots__ = ()
+            def deliver(self, chunk: bytes) -> None:
+                if alive.is_set():
+                    _send(chunk, _WS_OP_BIN)
+
+        sub = _Sub()
+        replay = streamer.subscribe(sub)
+        # Replay buffer first so the client renders immediately with context.
+        if replay:
+            _send(replay, _WS_OP_BIN)
+
+        try:
+            # Inbound loop — read JSON control messages from client.
+            while alive.is_set():
+                try:
+                    opcode, payload = _ws_read_message(self.rfile)
+                except (ConnectionError, OSError):
+                    break
+                if opcode == _WS_OP_CLOSE:
+                    # Echo CLOSE back per RFC 6455 §5.5.1, then exit.
+                    try:
+                        with send_lock:
+                            sock.sendall(_ws_build_frame(
+                                _ws_close_payload(1000, "bye"), opcode=_WS_OP_CLOSE,
+                            ))
+                    except OSError:
+                        pass
+                    break
+                if opcode == _WS_OP_PING:
+                    _send(payload, _WS_OP_PONG)
+                    continue
+                if opcode == _WS_OP_PONG:
+                    continue
+                if opcode == _WS_OP_TEXT:
+                    try:
+                        msg = json.loads(payload.decode("utf-8"))
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        continue
+                    self._ws_handle_client_msg(name, msg)
+                    continue
+                # Binary input from client — not currently used; ignore.
+        finally:
+            alive.clear()
+            try:
+                streamer.unsubscribe(sub)
+            except Exception:
+                pass
+            # Half-close write side; the outer request thread shuts down the
+            # rest via close_connection=True.
+            try:
+                sock.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass
+
+    def _ws_handle_client_msg(self, name: str, msg: dict) -> None:
+        """Apply a single client→server WS control message."""
+        if not isinstance(msg, dict):
+            return
+        mtype = msg.get("type")
+        target = tmux_target(name)
+        if mtype == "input":
+            data = msg.get("data", "")
+            if not isinstance(data, str) or not data:
+                return
+            # Chunk large pastes so one send-keys call stays reasonable.
+            for i in range(0, len(data), 4096):
+                chunk = data[i : i + 4096]
+                try:
+                    subprocess.run(
+                        ["tmux", "send-keys", "-t", target, "-l", chunk],
+                        capture_output=True, timeout=5,
+                    )
+                except Exception:
+                    return
+        elif mtype == "key":
+            data = msg.get("data", "")
+            if not isinstance(data, str) or not data:
+                return
+            # Accept any tmux key name; tmux validates and ignores unknowns.
+            # We do NOT restrict to _ALLOWED_TMUX_KEYS — the WS endpoint is
+            # auth-gated and the user owns the session.
+            try:
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", target, data],
+                    capture_output=True, timeout=5,
+                )
+            except Exception:
+                pass
+        elif mtype == "resize":
+            try:
+                cols = int(msg.get("cols", 0))
+                rows = int(msg.get("rows", 0))
+            except (TypeError, ValueError):
+                return
+            if cols < 20 or cols > 1000 or rows < 5 or rows > 500:
+                return
+            try:
+                subprocess.run(
+                    ["tmux", "resize-window", "-t", target,
+                     "-x", str(cols), "-y", str(rows)],
+                    capture_output=True, timeout=5,
+                )
+            except Exception:
+                pass
+        elif mtype == "ping":
+            # Client-level liveness — no server action needed.
+            pass
+
     def _sse_events(self):
         """Server-Sent Events stream for real-time session and board updates."""
         self.send_response(200)
@@ -36516,6 +36846,24 @@ class CCHandler(BaseHTTPRequestHandler):
         # ── Auth gate ──
         if not self._check_auth(method, path):
             return
+
+        # ── WebSocket pty stream: GET /ws/sessions/{name} ──
+        # Routed early so we can take over the raw socket before any normal
+        # HTTP response machinery touches it. Auth is enforced by the gate
+        # above (`?_token=` query param or `Authorization: Bearer …` header).
+        if method == "GET" and path.startswith("/ws/sessions/"):
+            from urllib.parse import unquote as _unq
+            ws_name = _unq(path[len("/ws/sessions/"):])
+            # Swallow exceptions ourselves — once the socket is hijacked, the
+            # generic 500-JSON error response in _route() would corrupt the
+            # WebSocket protocol.
+            try:
+                return self._handle_ws_session(ws_name)
+            except Exception as _e:
+                import traceback
+                slog(f"ERROR WS {ws_name} — {_e}\n{traceback.format_exc()}")
+                self._resp_status = 500
+                return
 
         # GET /
         if method == "GET" and path == "/":
@@ -41567,6 +41915,19 @@ p{{color:#888;margin:12px 0 28px;font-size:0.9rem;line-height:1.5}}
                 if saved:
                     return self._json({"name": name, "output": saved, "saved": True})
                 return self._json({"name": name, "output": "(no output)"})
+            if action == "ws-stats":
+                # Live WebSocket pty stream stats — frontend uses this to
+                # surface connection quality (sub count, byte counts, uptime).
+                s = TmuxStreamer.peek(name)
+                if s is None:
+                    return self._json({
+                        "session": name, "connected_subs": 0,
+                        "buffered_bytes": 0, "total_bytes_seen": 0,
+                        "uptime_seconds": 0, "active": False,
+                    })
+                stats = s.stats()
+                stats["active"] = True
+                return self._json(stats)
             if action == "info":
                 info = get_session_info(name)
                 return self._json(info)
