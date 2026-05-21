@@ -11923,38 +11923,38 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .metrics-no-psutil { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; color: var(--text); margin-bottom: 16px; line-height: 1.5; }
   .metrics-no-psutil code { font-size: 0.82rem; color: #f97316; }
   .metrics-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .metrics-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
-  .metrics-card-title { font-size: 0.68rem; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-  .metrics-card-value { font-size: 1.45rem; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 3px; }
-  .metrics-card-value span { font-size: 0.65em; font-weight: 400; color: var(--dim); }
-  .metrics-card-sub { font-size: 0.71rem; color: var(--dim); margin-bottom: 8px; }
-  .metrics-gauge { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .metrics-gauge-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
-  .metrics-gauge-fill.low { background: #3fb950; }
-  .metrics-gauge-fill.mid { background: #f0a742; }
-  .metrics-gauge-fill.high { background: #f85149; }
-  .metrics-section-title { font-size: 0.7rem; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-  .metrics-load-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  .metrics-load-block { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; text-align: center; min-width: 72px; }
-  .metrics-load-val { font-size: 1.05rem; font-weight: 700; line-height: 1; }
-  .metrics-load-lbl { font-size: 0.65rem; color: var(--dim); margin-top: 3px; }
-  .metrics-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; }
-  .metrics-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-  .metrics-table th { padding: 8px 12px; text-align: left; font-size: 0.68rem; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; background: var(--card); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .metrics-table td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); white-space: nowrap; }
+  .metrics-card { background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); padding: var(--s-3) var(--s-4); }
+  .metrics-card-title { font-size: var(--text-caption2); font-weight: var(--weight-semibold); color: var(--label-secondary); margin-bottom: var(--s-2); }
+  .metrics-card-value { font-size: var(--text-title2); font-weight: var(--weight-bold); color: var(--label-primary); line-height: 1; margin-bottom: 3px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .metrics-card-value span { font-size: 0.65em; font-weight: var(--weight-regular); color: var(--label-secondary); }
+  .metrics-card-sub { font-size: var(--text-caption1); color: var(--label-secondary); margin-bottom: var(--s-2); }
+  .metrics-gauge { height: 5px; background: var(--bg-tinted); border-radius: 3px; overflow: hidden; }
+  .metrics-gauge-fill { height: 100%; border-radius: 3px; transition: width 0.5s var(--ease-standard); }
+  .metrics-gauge-fill.low { background: var(--tint-green); }
+  .metrics-gauge-fill.mid { background: var(--tint-orange); }
+  .metrics-gauge-fill.high { background: var(--tint-red); }
+  .metrics-section-title { font-size: var(--text-caption1); font-weight: var(--weight-semibold); color: var(--label-secondary); margin-bottom: var(--s-3); }
+  .metrics-load-row { display: flex; gap: var(--s-2); margin-bottom: var(--s-5); flex-wrap: wrap; }
+  .metrics-load-block { background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); padding: var(--s-2) var(--s-4); text-align: center; min-width: 72px; }
+  .metrics-load-val { font-size: var(--text-callout); font-weight: var(--weight-bold); line-height: 1; color: var(--label-primary); font-variant-numeric: tabular-nums; }
+  .metrics-load-lbl { font-size: var(--text-caption2); color: var(--label-secondary); margin-top: 3px; }
+  .metrics-table-wrap { overflow-x: auto; border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); margin-bottom: var(--s-5); }
+  .metrics-table { width: 100%; border-collapse: collapse; font-size: var(--text-footnote); }
+  .metrics-table th { padding: var(--s-2) var(--s-3); text-align: left; font-size: var(--text-caption2); font-weight: var(--weight-semibold); color: var(--label-secondary); background: var(--bg-layer-1); border-bottom: 1px solid var(--sep-non-opaque); white-space: nowrap; }
+  .metrics-table td { padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--sep-non-opaque); color: var(--label-primary); white-space: nowrap; }
   .metrics-table tr:last-child td { border-bottom: none; }
-  .metrics-table tr:hover td { background: rgba(255,255,255,0.03); cursor: pointer; }
-  .metrics-table tr.row-selected td { background: rgba(88,166,255,0.08); }
-  .metrics-mini-bar { display: inline-block; width: 50px; height: 4px; background: var(--border); border-radius: 2px; vertical-align: middle; margin-left: 4px; overflow: hidden; }
+  .metrics-table tr:hover td { background: var(--bg-tinted); cursor: pointer; }
+  .metrics-table tr.row-selected td { background: color-mix(in srgb, var(--tint-blue) 12%, transparent); }
+  .metrics-mini-bar { display: inline-block; width: 50px; height: 4px; background: var(--bg-tinted); border-radius: 2px; vertical-align: middle; margin-left: 4px; overflow: hidden; }
   .metrics-mini-bar-fill { height: 100%; border-radius: 2px; }
-  .metrics-speedtest { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
-  .metrics-speedtest-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
-  .metrics-speedtest-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; text-align: center; }
-  .metrics-speedtest-label { font-size: 0.65rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
-  .metrics-speedtest-value { font-size: 1.7rem; font-weight: 700; color: var(--accent); margin-top: 4px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .metrics-speedtest-sub { font-size: 0.68rem; color: var(--dim); margin-top: 2px; }
-  .metrics-speedtest-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
-  .metrics-speedtest-bar-fill { height: 100%; background: linear-gradient(90deg, #58a6ff, #3fb950); width: 0%; transition: width 0.2s ease; }
+  .metrics-speedtest { background: var(--bg-layer-1); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-md); padding: var(--s-4); margin-bottom: var(--s-5); }
+  .metrics-speedtest-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-3); margin-bottom: var(--s-3); }
+  .metrics-speedtest-card { background: var(--bg-layer-2); border: 1px solid var(--sep-non-opaque); border-radius: var(--r-sm); padding: var(--s-3) var(--s-4); text-align: center; }
+  .metrics-speedtest-label { font-size: var(--text-caption2); color: var(--label-secondary); font-weight: var(--weight-semibold); }
+  .metrics-speedtest-value { font-size: var(--text-title2); font-weight: var(--weight-bold); color: var(--tint-blue); margin-top: 4px; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .metrics-speedtest-sub { font-size: var(--text-caption2); color: var(--label-secondary); margin-top: 2px; }
+  .metrics-speedtest-bar { width: 100%; height: 4px; background: var(--bg-tinted); border-radius: 2px; overflow: hidden; margin-bottom: var(--s-3); }
+  .metrics-speedtest-bar-fill { height: 100%; background: var(--tint-blue); width: 0%; transition: width 0.2s var(--ease-standard); }
   .metrics-speedtest-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .metrics-speedtest-status { font-size: 0.78rem; color: var(--dim); }
   @media (max-width: 600px) {
