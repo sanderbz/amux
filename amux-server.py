@@ -13966,13 +13966,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     display: flex; align-items: center; gap: var(--s-2);
     cursor: pointer; user-select: none;
     transition: background var(--duration-fast) var(--ease-standard);
-    position: sticky;
-    top: calc(var(--sticky-nav-top, 64px) + 56px);
-    z-index: 30;
-    background: var(--mat-thin);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    margin-bottom: var(--s-2);
+    position: relative;        /* sticky was clipping cards underneath */
+    z-index: 1;
+    background: transparent;   /* group header is meta, not chrome */
+    margin-bottom: var(--s-3);
   }
   #session-view #cards .board-session-header:hover { background: var(--bg-tinted); }
   #session-view #cards .board-session-chevron {
