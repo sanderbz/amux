@@ -8381,6 +8381,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
   /* Archived sessions */
   #archived-section { padding: 0 12px 12px; }
+  /* Don't render a visible empty wrapper when there's no content. The JS
+     renderer occasionally leaves the container around (or strips its inner
+     :empty), creating an empty rounded surface above the first card. */
+  #archived-section:empty { display: none; padding: 0; }
   .archived-footer {
     display: flex; align-items: center; gap: 8px;
     padding: 9px 12px; border-radius: 8px; cursor: pointer;
