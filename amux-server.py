@@ -11109,49 +11109,53 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     padding: 8px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border);
   }
   .crm-search-wrap input {
-    width: 100%; box-sizing: border-box; padding: 5px 8px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-size: 0.8rem; outline: none;
+    width: 100%; box-sizing: border-box; padding: var(--s-2) var(--s-3); min-height: 36px;
+    background: var(--bg-tinted); border: 1px solid transparent; border-radius: var(--r-sm);
+    color: var(--label-primary); font-size: var(--text-footnote); outline: none;
+    transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
   }
-  .crm-queue { flex-shrink: 0; border-bottom: 1px solid var(--border); }
+  .crm-search-wrap input:focus { background: var(--bg-layer-2); border-color: var(--tint-blue); }
+  .crm-search-wrap input::placeholder { color: var(--label-tertiary); }
+  .crm-queue { flex-shrink: 0; border-bottom: 1px solid var(--sep-non-opaque); }
   .crm-queue-hdr {
-    padding: 6px 12px; font-size: 0.72rem; font-weight: 600; color: var(--dim);
-    cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none;
+    padding: var(--s-2) var(--s-3); font-size: var(--text-caption1); font-weight: var(--weight-semibold); color: var(--label-secondary);
+    cursor: pointer; display: flex; align-items: center; gap: var(--s-2); user-select: none;
   }
-  .crm-queue-hdr:hover { color: var(--text); }
+  .crm-queue-hdr:hover { color: var(--label-primary); }
   .crm-queue-badge {
-    margin-left: auto; background: #ef4444; color: #fff;
-    border-radius: 10px; padding: 0 5px; font-size: 0.68rem;
+    margin-left: auto; background: var(--tint-red); color: #fff;
+    border-radius: var(--r-full); padding: 0 var(--s-2); font-size: var(--text-caption2); font-weight: var(--weight-semibold);
   }
   .crm-queue-item {
-    padding: 5px 12px 5px 18px; font-size: 0.78rem; cursor: pointer;
-    border-left: 2px solid #a78bfa; display: flex; flex-direction: column; gap: 1px;
+    padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4); font-size: var(--text-footnote); cursor: pointer;
+    border-left: 2px solid var(--tint-purple); display: flex; flex-direction: column; gap: 1px;
   }
-  .crm-queue-item:hover { background: var(--hover); }
-  .crm-queue-item.overdue { border-left-color: #ef4444; }
-  .crm-queue-item-name { font-weight: 500; }
-  .crm-queue-item-due { font-size: 0.7rem; color: var(--dim); }
+  .crm-queue-item:hover { background: var(--bg-tinted); }
+  .crm-queue-item.overdue { border-left-color: var(--tint-red); }
+  .crm-queue-item-name { font-weight: var(--weight-medium); }
+  .crm-queue-item-due { font-size: var(--text-caption1); color: var(--label-secondary); }
   .crm-contact-list { flex: 1; overflow-y: auto; }
   .crm-contact-item {
-    padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 2px;
+    padding: var(--s-3); cursor: pointer; border-bottom: 1px solid var(--sep-non-opaque);
+    display: flex; flex-direction: column; gap: 2px; min-height: 44px;
+    transition: background var(--duration-fast) var(--ease-standard);
   }
-  .crm-contact-item:hover { background: var(--hover); }
-  .crm-contact-item.active { background: rgba(139,92,246,0.1); }
-  .crm-contact-name { font-size: 0.84rem; font-weight: 500; display: flex; align-items: center; gap: 6px; }
-  .crm-contact-sub { font-size: 0.73rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .crm-contact-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
-  .crm-health { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .crm-health.fresh { background: #22c55e; }
-  .crm-health.warm  { background: #f59e0b; }
-  .crm-health.cold  { background: #ef4444; }
-  .crm-health.never { background: var(--dim); }
-  .crm-days-badge { font-size: 0.7rem; color: var(--dim); }
+  .crm-contact-item:hover { background: var(--bg-tinted); }
+  .crm-contact-item.active { background: color-mix(in srgb, var(--tint-blue) 14%, transparent); }
+  .crm-contact-name { font-size: var(--text-subhead); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--s-2); color: var(--label-primary); }
+  .crm-contact-sub { font-size: var(--text-caption1); color: var(--label-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crm-contact-meta { display: flex; align-items: center; gap: var(--s-2); margin-top: 2px; flex-wrap: wrap; }
+  .crm-health { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .crm-health.fresh { background: var(--tint-green); }
+  .crm-health.warm  { background: var(--tint-orange); }
+  .crm-health.cold  { background: var(--tint-red); }
+  .crm-health.never { background: var(--label-tertiary); }
+  .crm-days-badge { font-size: var(--text-caption1); color: var(--label-secondary); }
   .crm-fu-badge {
-    font-size: 0.68rem; padding: 1px 5px; border-radius: 3px;
-    background: rgba(139,92,246,0.15); color: #a78bfa;
+    font-size: var(--text-caption2); padding: 1px var(--s-2); border-radius: var(--r-xs); font-weight: var(--weight-medium);
+    background: color-mix(in srgb, var(--tint-purple) 18%, transparent); color: var(--tint-purple);
   }
-  .crm-fu-badge.overdue { background: rgba(239,68,68,0.15); color: #f87171; }
+  .crm-fu-badge.overdue { background: color-mix(in srgb, var(--tint-red) 18%, transparent); color: var(--tint-red); }
   /* Detail pane */
   .crm-detail { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
   .crm-detail-empty {
@@ -11189,21 +11193,21 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     min-height: 34px;
   }
   .crm-tag-chip {
-    font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
-    background: rgba(139,92,246,0.15); color: #a78bfa; cursor: pointer;
+    font-size: var(--text-caption1); padding: 2px var(--s-2); border-radius: var(--r-full); font-weight: var(--weight-medium);
+    background: color-mix(in srgb, var(--tint-purple) 18%, transparent); color: var(--tint-purple); cursor: pointer;
   }
-  .crm-tag-chip:hover { background: rgba(139,92,246,0.28); text-decoration: line-through; }
+  .crm-tag-chip:hover { background: color-mix(in srgb, var(--tint-purple) 28%, transparent); text-decoration: line-through; }
   .crm-add-tag {
-    font-size: 0.72rem; color: var(--dim); cursor: pointer; padding: 2px 7px;
-    border: 1px dashed var(--border); border-radius: 10px;
+    font-size: var(--text-caption1); color: var(--label-secondary); cursor: pointer; padding: 2px var(--s-2);
+    border: 1px dashed var(--sep-non-opaque); border-radius: var(--r-full);
   }
-  .crm-add-tag:hover { color: var(--text); }
+  .crm-add-tag:hover { color: var(--label-primary); border-color: var(--label-tertiary); }
   .crm-tag-inp {
-    font-size: 0.72rem; padding: 2px 7px; border: 1px solid var(--accent);
-    border-radius: 10px; background: var(--bg); color: var(--text); outline: none; width: 90px;
+    font-size: var(--text-caption1); padding: 2px var(--s-2); border: 1px solid var(--tint-blue);
+    border-radius: var(--r-full); background: var(--bg-layer-2); color: var(--label-primary); outline: none; width: 90px;
   }
-  .crm-notes-wrap { padding: 10px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .crm-notes-label { font-size: 0.7rem; color: var(--dim); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .crm-notes-wrap { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--sep-non-opaque); flex-shrink: 0; }
+  .crm-notes-label { font-size: var(--text-caption1); color: var(--label-secondary); margin-bottom: var(--s-1); font-weight: var(--weight-semibold); letter-spacing: 0; }
   .crm-notes-ta {
     width: 100%; box-sizing: border-box; background: transparent;
     border: none; color: var(--text); font-size: 0.82rem; font-family: inherit;
@@ -12742,9 +12746,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   <div class="crm-detail" id="crm-detail">
     <button class="crm-expand-btn" onclick="_crmToggleSidebar()" title="Show contacts list" style="position:absolute;top:10px;left:10px;z-index:2;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg></button>
     <div class="crm-detail-empty" id="crm-detail-empty">
-      <div style="font-size:2.2rem;">&#x1F465;</div>
-      <div style="font-size:0.85rem;">Select a contact or add one</div>
-      <button class="btn" onclick="_crmNew()" style="margin-top:8px;font-size:0.8rem;">+ Add Contact</button>
+      <i data-lucide="users" style="width:36px;height:36px;color:var(--label-tertiary);"></i>
+      <div style="font-size:var(--text-subhead);color:var(--label-secondary);">Select a contact or add one</div>
+      <button class="btn-ios btn-ios-primary" onclick="_crmNew()" style="margin-top:var(--s-2);">
+        <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Contact
+      </button>
     </div>
     <div id="crm-contact-form" style="display:none;flex-direction:column;overflow:hidden;flex:1;">
       <div class="crm-contact-hdr">
@@ -12754,11 +12760,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           <button id="crm-delete-btn" class="notes-delete-btn" onclick="_crmDeleteContact()" title="Delete contact"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
         <div class="crm-field-row">
-          <div class="crm-field"><span>&#x1F3E2;</span><input id="crm-company" class="crm-field-input" placeholder="Company" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
-          <div class="crm-field"><span>&#x1F4BC;</span><input id="crm-role" class="crm-field-input" placeholder="Role / Title" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
-          <div class="crm-field"><span>&#x1F4E7;</span><input id="crm-email" class="crm-field-input" placeholder="email" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
-          <div class="crm-field"><span>&#x1F517;</span><input id="crm-linkedin" class="crm-field-input" placeholder="linkedin.com/in/…" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
-          <div class="crm-field"><span>&#x1F4F1;</span><input id="crm-phone" class="crm-field-input" placeholder="phone" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
+          <div class="crm-field"><i data-lucide="building-2" style="width:13px;height:13px;"></i><input id="crm-company" class="crm-field-input" placeholder="Company" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
+          <div class="crm-field"><i data-lucide="briefcase" style="width:13px;height:13px;"></i><input id="crm-role" class="crm-field-input" placeholder="Role / Title" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
+          <div class="crm-field"><i data-lucide="mail" style="width:13px;height:13px;"></i><input id="crm-email" class="crm-field-input" placeholder="email" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
+          <div class="crm-field"><i data-lucide="linkedin" style="width:13px;height:13px;"></i><input id="crm-linkedin" class="crm-field-input" placeholder="linkedin.com/in/…" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
+          <div class="crm-field"><i data-lucide="phone" style="width:13px;height:13px;"></i><input id="crm-phone" class="crm-field-input" placeholder="phone" oninput="_crmDirtied()" onblur="_crmAutoSave()"></div>
         </div>
       </div>
       <div class="crm-tags-row" id="crm-tags-row"></div>
@@ -12768,8 +12774,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       </div>
       <div class="crm-ix-wrap">
         <div class="crm-ix-hdr">
-          <span style="font-size:0.85rem;font-weight:500;">Interactions</span>
-          <button class="btn primary" onclick="_crmOpenLog()" style="font-size:0.74rem;padding:4px 10px;">+ Log</button>
+          <span style="font-size:var(--text-subhead);font-weight:var(--weight-semibold);color:var(--label-primary);">Interactions</span>
+          <button class="btn-ios btn-ios-primary" onclick="_crmOpenLog()" style="min-height:32px;padding:0 var(--s-3);font-size:var(--text-footnote);">
+            <i data-lucide="plus" style="width:14px;height:14px;"></i> Log
+          </button>
         </div>
         <div id="crm-ix-list" class="crm-ix-list"></div>
       </div>
