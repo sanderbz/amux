@@ -36287,6 +36287,23 @@ class TmuxStreamer:
             self._fifo_fd = None
             raise RuntimeError(f"tmux pipe-pane failed: {e.stderr.decode(errors='replace')}") from e
 
+        # Seed replay buffer with current pane snapshot so the first subscriber
+        # sees the existing screen instead of a blank terminal. pipe-pane only
+        # captures bytes produced AFTER attach, so without this an idle session
+        # appears empty in focus mode until it produces new output.
+        try:
+            snap = subprocess.run(
+                ["tmux", "capture-pane", "-p", "-e", "-J", "-t", target, "-S", "-200"],
+                capture_output=True, timeout=3,
+            )
+            if snap.returncode == 0 and snap.stdout:
+                with self.replay_lock:
+                    self.replay.extend(snap.stdout)
+                    if len(self.replay) > _STREAMER_REPLAY_BYTES:
+                        del self.replay[: len(self.replay) - _STREAMER_REPLAY_BYTES]
+        except Exception:
+            pass
+
         # Spawn reader thread.
         self._reader = threading.Thread(
             target=self._read_loop, name=f"tmux-stream-{self.name}", daemon=True,
