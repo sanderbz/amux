@@ -22509,6 +22509,526 @@ function _syncPeekOverlayToVisualViewport() {
     _focusCloseSheet('dock-plus-sheet');
   };
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Key Groups (Termius-style 4-key swipeable accessory) — P0-2 + P1-7
+  // ═══════════════════════════════════════════════════════════════════
+  // - Default 4 groups: Agent / Shell / Tmux / Symbols
+  // - Each group has exactly 4 keys; keys are either tmux-named (Up, Tab, BTab,
+  //   C-c, ...) sent via peekQuickKeys(), or literal characters sent via
+  //   peekTypeLiteral() (prefers LiveTerminal WS, falls back to HTTP keys -l).
+  // - Custom groups via Manage sheet, persisted to localStorage "amuxKeyGroups".
+  // - Shift+Tab (BTab) is the Claude Code plan/normal mode toggle — critical.
+  window.AmuxKeyGroups = {
+    defaults: [
+      { id: 'agent',   label: 'Agent',   keys: [
+          { label: 'Esc',    send: 'Escape' },
+          { label: 'Tab',    send: 'Tab' },
+          { label: '⇧Tab', send: 'BTab' },
+          { label: 'Ctrl-C', send: 'C-c', danger: true },
+      ]},
+      { id: 'shell',   label: 'Shell',   keys: [
+          { label: '↑', send: 'Up' },
+          { label: '↓', send: 'Down' },
+          { label: 'Ctrl-U', send: 'C-u' },
+          { label: 'Ctrl-R', send: 'C-r' },
+      ]},
+      { id: 'tmux',    label: 'Tmux',    keys: [
+          { label: 'PgUp',   send: 'PageUp' },
+          { label: 'PgDn',   send: 'PageDown' },
+          { label: 'Home',   send: 'Home' },
+          { label: 'End',    send: 'End' },
+      ]},
+      { id: 'symbols', label: 'Symbols', keys: [
+          { label: '|',  literal: '|' },
+          { label: '~',  literal: '~' },
+          { label: '/',  literal: '/' },
+          { label: '`',  literal: '`' },
+      ]},
+    ],
+    current: 0,
+    _cache: null,
+    load: function() {
+      if (this._cache) return this._cache;
+      try {
+        const raw = localStorage.getItem('amuxKeyGroups');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length) {
+            this._cache = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      // Deep clone defaults so callers can mutate freely.
+      this._cache = JSON.parse(JSON.stringify(this.defaults));
+      return this._cache;
+    },
+    save: function(groups) {
+      this._cache = groups;
+      try { localStorage.setItem('amuxKeyGroups', JSON.stringify(groups)); } catch (e) {}
+    },
+    reset: function() {
+      this._cache = null;
+      try { localStorage.removeItem('amuxKeyGroups'); } catch (e) {}
+      this.current = 0;
+    },
+  };
+
+  // Send a literal string to the active session terminal. Prefers WebSocket
+  // (LiveTerminal.sendInput) for instant delivery; falls back to the HTTP keys
+  // endpoint with each character as a separate -l literal via the existing
+  // doKeys() round-trip.
+  window.peekTypeLiteral = function peekTypeLiteral(text) {
+    if (!text) return;
+    if (!window.peekSession) return;
+    const lt = window._liveTerm;
+    if (lt && typeof lt.sendInput === 'function' && lt.isLive && lt.isLive()) {
+      if (lt.sendInput(text)) return;
+    }
+    // Fallback: HTTP keys endpoint. Send each char individually so tmux
+    // interprets them as literals (the endpoint accepts an array).
+    try {
+      const chars = Array.from(text);
+      if (typeof doKeys === 'function') {
+        doKeys(window.peekSession, chars);
+      }
+    } catch (e) {}
+  };
+
+  // Render the accessory bar for the current group + nav cluster.
+  window.renderAccessoryGroups = function renderAccessoryGroups() {
+    const acc = document.getElementById('focus-accessory');
+    if (!acc) return;
+    const groups = AmuxKeyGroups.load();
+    if (!groups.length) return;
+    if (AmuxKeyGroups.current >= groups.length) AmuxKeyGroups.current = 0;
+    const g = groups[AmuxKeyGroups.current];
+    const lane = (g.keys || []).map(function(k, i) {
+      const lit  = k && k.literal ? esc(k.literal) : '';
+      const send = k && k.send    ? esc(k.send)    : '';
+      const lbl  = esc((k && (k.label || k.send || k.literal)) || '');
+      const danger = (k && k.danger) ? ' focus-kbd-danger' : '';
+      return '<button type="button" class="focus-kbd-btn' + danger + '"'
+           + ' data-idx="' + i + '"'
+           + ' data-send="' + send + '"'
+           + ' data-literal="' + lit + '"'
+           + ' aria-label="' + lbl + '">' + lbl + '</button>';
+    }).join('');
+    // Nav cluster: prev / next / Manage(···) / Hide-kb / Gesture toggle.
+    // Reuse ids from the existing P0-5 fallback (amux-hide-kb-btn,
+    // amux-gesture-btn) so its idempotent ensureAccessoryNavButtons() bails.
+    const nav = ''
+      + '<button type="button" class="focus-kbd-nav" id="acc-prev" aria-label="Previous group">‹</button>'
+      + '<button type="button" class="focus-kbd-nav" id="acc-next" aria-label="Next group">›</button>'
+      + '<button type="button" class="focus-kbd-nav" id="acc-more" aria-label="Manage key groups"><i data-lucide="ellipsis"></i></button>'
+      + '<button type="button" class="focus-kbd-nav" id="amux-hide-kb-btn" aria-label="Hide keyboard"><i data-lucide="chevron-down"></i></button>'
+      + '<button type="button" class="focus-kbd-nav" id="amux-gesture-btn" aria-label="Gesture mode" aria-pressed="false"><i data-lucide="hand"></i></button>';
+    acc.innerHTML = ''
+      + '<div class="acc-lane" id="acc-lane" data-group="' + esc(g.id || '') + '" aria-label="' + esc(g.label || g.id || '') + '">'
+      +   lane
+      + '</div>'
+      + '<div class="acc-nav">' + nav + '</div>';
+    // Re-create Lucide icons inside the freshly-rendered nav cluster.
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch (e) {}
+    // Reflect gesture-mode state on the toggle button.
+    const gestBtn = document.getElementById('amux-gesture-btn');
+    if (gestBtn) {
+      const on = !!window._gestureMode || document.body.classList.contains('amux-gesture-mode');
+      gestBtn.classList.toggle('amux-nav-active', on);
+      gestBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    // Key buttons -> send. Use mousedown/pointerdown to avoid blurring the
+    // textarea (which would hide the accessory before the click registers).
+    acc.querySelectorAll('.focus-kbd-btn').forEach(function(btn) {
+      btn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+      btn.addEventListener('click', function() {
+        const lit  = btn.getAttribute('data-literal');
+        const send = btn.getAttribute('data-send');
+        if (lit)       window.peekTypeLiteral(lit);
+        else if (send) peekQuickKeys(send);
+      });
+    });
+    // Nav buttons mousedown-preventDefault to keep textarea focused.
+    acc.querySelectorAll('.focus-kbd-nav').forEach(function(b) {
+      b.addEventListener('mousedown', function(e) { e.preventDefault(); });
+    });
+    const prev = document.getElementById('acc-prev');
+    const next = document.getElementById('acc-next');
+    const more = document.getElementById('acc-more');
+    const hideKb = document.getElementById('amux-hide-kb-btn');
+    const gest = document.getElementById('amux-gesture-btn');
+    if (prev) prev.addEventListener('click', function(e) { e.preventDefault(); cycleKeyGroup(-1); });
+    if (next) next.addEventListener('click', function(e) { e.preventDefault(); cycleKeyGroup(1); });
+    if (more) more.addEventListener('click', function(e) { e.preventDefault(); openKeyGroupsSheet(); });
+    if (hideKb) hideKb.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (typeof window.hideMobileKeyboard === 'function') window.hideMobileKeyboard();
+      else { const inp = document.getElementById('peek-cmd-input'); if (inp) inp.blur(); }
+    });
+    if (gest) gest.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (typeof window.toggleGestureMode === 'function') {
+        window.toggleGestureMode();
+      } else {
+        document.body.classList.toggle('amux-gesture-mode');
+      }
+      const on = !!window._gestureMode || document.body.classList.contains('amux-gesture-mode');
+      gest.classList.toggle('amux-nav-active', on);
+      gest.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    // Horizontal swipe inside the lane to cycle groups.
+    const laneEl = document.getElementById('acc-lane');
+    if (laneEl && !laneEl.dataset.swipeWired) {
+      laneEl.dataset.swipeWired = '1';
+      let sx = 0, sy = 0;
+      laneEl.addEventListener('touchstart', function(e) {
+        if (!e.touches || !e.touches[0]) return;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      }, { passive: true });
+      laneEl.addEventListener('touchend', function(e) {
+        if (!e.changedTouches || !e.changedTouches[0]) return;
+        const dx = e.changedTouches[0].clientX - sx;
+        const dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          cycleKeyGroup(dx < 0 ? 1 : -1);
+        }
+      }, { passive: true });
+    }
+  };
+
+  // Cycle to next/previous group; renders + brief slide animation.
+  window.cycleKeyGroup = function cycleKeyGroup(dir) {
+    const groups = AmuxKeyGroups.load();
+    if (!groups.length) return;
+    AmuxKeyGroups.current = ((AmuxKeyGroups.current + dir) % groups.length + groups.length) % groups.length;
+    renderAccessoryGroups();
+    // Tiny pop animation on the lane to make the change feel responsive.
+    const lane = document.getElementById('acc-lane');
+    if (lane && window.motion && window.AmuxSprings) {
+      try {
+        motion.animate(lane, { x: [dir > 0 ? 18 : -18, 0], opacity: [0.55, 1] },
+          window.AmuxSprings.snappy);
+      } catch (e) {}
+    }
+  };
+
+  // ── Manage Key Groups sheet ────────────────────────────────────────
+  // The sheet has 3 sub-views rendered into #key-groups-sheet-body:
+  //   'list'   — list all groups + "Add group" + "Reset"
+  //   'editor' — edit a single group's name + 4 key slots
+  //   'picker' — choose a key (tab: Special / Modifiers / Literal)
+  // Sub-view state lives on the module so re-opens recover gracefully.
+  const _kgSheet = {
+    view: 'list',         // 'list' | 'editor' | 'picker'
+    editingIdx: -1,       // index into groups[] when view='editor'
+    editingDraft: null,   // working copy of the group being edited
+    pickingSlot: -1,      // 0..3 when view='picker'
+    pickerTab: 'special', // 'special' | 'mods' | 'literal'
+    literalDraft: '',
+  };
+
+  const _kgSpecialKeys = [
+    'Escape','Tab','BTab','Enter','Space','Backspace',
+    'Up','Down','Left','Right',
+    'Home','End','PageUp','PageDown','Insert','Delete',
+    'F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',
+  ];
+  const _kgModKeys = [
+    'C-a','C-b','C-c','C-d','C-e','C-f','C-g','C-h','C-k','C-l',
+    'C-n','C-o','C-p','C-r','C-s','C-t','C-u','C-v','C-w','C-x',
+    'C-y','C-z','C-Space','M-b','M-f','M-.','M-d',
+  ];
+  // Pretty-label a key code for display in the picker grid.
+  function _kgLabelFor(code) {
+    if (code === 'Escape') return 'Esc';
+    if (code === 'BTab')   return '⇧Tab';
+    if (code === 'Tab')    return 'Tab';
+    if (code === 'Enter')  return '⏎';
+    if (code === 'Space')  return 'Space';
+    if (code === 'Backspace') return '⌫';
+    if (code === 'PageUp')   return 'PgUp';
+    if (code === 'PageDown') return 'PgDn';
+    if (code === 'Up')    return '↑';
+    if (code === 'Down')  return '↓';
+    if (code === 'Left')  return '←';
+    if (code === 'Right') return '→';
+    return code;
+  }
+
+  window.openKeyGroupsSheet = function openKeyGroupsSheet() {
+    _kgSheet.view = 'list';
+    _kgSheet.editingIdx = -1;
+    _kgSheet.editingDraft = null;
+    renderKeyGroupsSheet();
+    _focusOpenSheet('key-groups-sheet');
+  };
+  window.closeKeyGroupsSheet = function closeKeyGroupsSheet() {
+    _focusCloseSheet('key-groups-sheet');
+  };
+
+  window.renderKeyGroupsSheet = function renderKeyGroupsSheet() {
+    const body = document.getElementById('key-groups-sheet-body');
+    if (!body) return;
+    if (_kgSheet.view === 'list')   body.innerHTML = _kgRenderList();
+    else if (_kgSheet.view === 'editor') body.innerHTML = _kgRenderEditor();
+    else if (_kgSheet.view === 'picker') body.innerHTML = _kgRenderPicker();
+    _kgWireSheet();
+    try { if (window.lucide && lucide.createIcons) lucide.createIcons(); } catch (e) {}
+  };
+
+  function _kgRenderList() {
+    const groups = AmuxKeyGroups.load();
+    const rows = groups.map(function(g, i) {
+      const preview = (g.keys || []).map(function(k) {
+        return (k && (k.label || k.send || k.literal)) || '·';
+      }).join('  ·  ');
+      return '<li class="key-group-row" data-idx="' + i + '">'
+           + '  <button type="button" class="kg-remove" data-action="remove" data-idx="' + i + '" aria-label="Remove group">'
+           + '    <i data-lucide="minus"></i>'
+           + '  </button>'
+           + '  <div class="kg-body" data-action="edit" data-idx="' + i + '">'
+           + '    <div class="kg-name">' + esc(g.label || g.id || ('Group ' + (i+1))) + '</div>'
+           + '    <div class="kg-preview">' + esc(preview) + '</div>'
+           + '  </div>'
+           + '  <div class="kg-handle" aria-hidden="true"><i data-lucide="grip-vertical"></i></div>'
+           + '</li>';
+    }).join('');
+    return ''
+      + '<div class="focus-sheet-section-label" style="display:flex;align-items:center;justify-content:space-between;">'
+      +   '<span>Key Groups</span>'
+      +   '<button type="button" class="focus-kbd-nav" data-action="close" style="height:32px;min-width:32px;" aria-label="Close"><i data-lucide="x"></i></button>'
+      + '</div>'
+      + '<ul class="focus-sheet-list" id="kg-list">' + rows + '</ul>'
+      + '<div class="kg-add-row">'
+      +   '<button type="button" class="kg-reset-btn" data-action="reset">Reset to defaults</button>'
+      +   '<button type="button" class="kg-add-btn"   data-action="add">+ Add group</button>'
+      + '</div>';
+  }
+
+  function _kgRenderEditor() {
+    const d = _kgSheet.editingDraft || { label: '', keys: [{},{},{},{}] };
+    const slots = [0,1,2,3].map(function(i) {
+      const k = d.keys[i];
+      const filled = k && (k.label || k.send || k.literal);
+      const txt = filled ? esc(k.label || k.send || k.literal) : '+ key';
+      return '<button type="button" class="kg-slot' + (filled ? ' filled' : '') + '" data-action="pick-slot" data-slot="' + i + '">' + txt + '</button>';
+    }).join('');
+    return ''
+      + '<div class="focus-sheet-section-label" style="display:flex;align-items:center;justify-content:space-between;">'
+      +   '<button type="button" class="focus-kbd-nav" data-action="back" style="height:32px;min-width:32px;" aria-label="Back"><i data-lucide="chevron-left"></i></button>'
+      +   '<span>Edit Group</span>'
+      +   '<button type="button" class="focus-kbd-nav" data-action="close" style="height:32px;min-width:32px;" aria-label="Close"><i data-lucide="x"></i></button>'
+      + '</div>'
+      + '<div class="kg-editor">'
+      +   '<input type="text" class="kg-editor-name" id="kg-editor-name" maxlength="32" placeholder="Group name" value="' + esc(d.label || '') + '">'
+      +   '<div class="kg-slots">' + slots + '</div>'
+      +   '<div class="kg-editor-actions">'
+      +     '<button type="button" class="kg-reset-btn" data-action="back">Cancel</button>'
+      +     '<button type="button" class="kg-add-btn"   data-action="save">Save</button>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function _kgRenderPicker() {
+    const tab = _kgSheet.pickerTab;
+    const tabBtn = function(id, label) {
+      return '<button type="button" class="kg-picker-tab' + (tab === id ? ' active' : '') + '" data-action="tab" data-tab="' + id + '">' + label + '</button>';
+    };
+    let grid = '';
+    if (tab === 'special') {
+      grid = '<div class="kg-picker-grid">'
+           + _kgSpecialKeys.map(function(k) {
+               return '<button type="button" class="kg-picker-chip" data-action="pick-key" data-send="' + esc(k) + '" data-label="' + esc(_kgLabelFor(k)) + '">' + esc(_kgLabelFor(k)) + '</button>';
+             }).join('')
+           + '</div>';
+    } else if (tab === 'mods') {
+      grid = '<div class="kg-picker-grid">'
+           + _kgModKeys.map(function(k) {
+               const danger = (k === 'C-c') ? ' danger' : '';
+               return '<button type="button" class="kg-picker-chip' + danger + '" data-action="pick-key" data-send="' + esc(k) + '" data-label="' + esc(k) + '">' + esc(k) + '</button>';
+             }).join('')
+           + '</div>';
+    } else {
+      grid = '<input type="text" class="kg-picker-literal" id="kg-picker-literal" maxlength="16" placeholder="Type literal characters..." value="' + esc(_kgSheet.literalDraft || '') + '">'
+           + '<div class="kg-editor-actions">'
+           + '  <button type="button" class="kg-reset-btn" data-action="back-to-editor">Cancel</button>'
+           + '  <button type="button" class="kg-add-btn"   data-action="pick-literal">Use this</button>'
+           + '</div>';
+    }
+    return ''
+      + '<div class="focus-sheet-section-label" style="display:flex;align-items:center;justify-content:space-between;">'
+      +   '<button type="button" class="focus-kbd-nav" data-action="back-to-editor" style="height:32px;min-width:32px;" aria-label="Back"><i data-lucide="chevron-left"></i></button>'
+      +   '<span>Pick a key</span>'
+      +   '<button type="button" class="focus-kbd-nav" data-action="close" style="height:32px;min-width:32px;" aria-label="Close"><i data-lucide="x"></i></button>'
+      + '</div>'
+      + '<div class="kg-picker">'
+      +   '<div class="kg-picker-tabs">'
+      +     tabBtn('special', 'Special')
+      +     tabBtn('mods',    'Modifiers')
+      +     tabBtn('literal', 'Literal')
+      +   '</div>'
+      +   grid
+      + '</div>';
+  }
+
+  function _kgWireSheet() {
+    const body = document.getElementById('key-groups-sheet-body');
+    if (!body) return;
+    // Replace the body to drop any previously-attached listeners cleanly.
+    const fresh = body.cloneNode(true);
+    body.parentNode.replaceChild(fresh, body);
+    fresh.addEventListener('click', function(e) {
+      const t = e.target.closest('[data-action]');
+      if (!t) return;
+      const action = t.getAttribute('data-action');
+      const idx = parseInt(t.getAttribute('data-idx') || '-1', 10);
+      const slot = parseInt(t.getAttribute('data-slot') || '-1', 10);
+      const groups = AmuxKeyGroups.load();
+      if (action === 'close') { closeKeyGroupsSheet(); return; }
+      if (action === 'reset') {
+        if (!confirm('Reset all key groups to defaults? Your custom groups will be removed.')) return;
+        AmuxKeyGroups.reset();
+        renderKeyGroupsSheet();
+        renderAccessoryGroups();
+        return;
+      }
+      if (action === 'add') {
+        const next = groups.slice();
+        next.push({ id: 'custom-' + Date.now().toString(36), label: 'New group', keys: [{},{},{},{}] });
+        AmuxKeyGroups.save(next);
+        _kgSheet.view = 'editor';
+        _kgSheet.editingIdx = next.length - 1;
+        _kgSheet.editingDraft = JSON.parse(JSON.stringify(next[next.length - 1]));
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'remove') {
+        if (!Number.isFinite(idx) || idx < 0) return;
+        if (groups.length <= 1) { showToast('At least one group is required'); return; }
+        if (!confirm('Remove "' + (groups[idx].label || groups[idx].id) + '"?')) return;
+        const next = groups.slice();
+        next.splice(idx, 1);
+        AmuxKeyGroups.save(next);
+        if (AmuxKeyGroups.current >= next.length) AmuxKeyGroups.current = 0;
+        renderKeyGroupsSheet();
+        renderAccessoryGroups();
+        return;
+      }
+      if (action === 'edit') {
+        if (!Number.isFinite(idx) || idx < 0 || idx >= groups.length) return;
+        _kgSheet.view = 'editor';
+        _kgSheet.editingIdx = idx;
+        _kgSheet.editingDraft = JSON.parse(JSON.stringify(groups[idx]));
+        // Normalize: ensure 4 slots exist.
+        while (_kgSheet.editingDraft.keys.length < 4) _kgSheet.editingDraft.keys.push({});
+        _kgSheet.editingDraft.keys = _kgSheet.editingDraft.keys.slice(0, 4);
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'back') {
+        _kgSheet.view = 'list';
+        _kgSheet.editingIdx = -1;
+        _kgSheet.editingDraft = null;
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'save') {
+        if (!_kgSheet.editingDraft) return;
+        const nameInp = document.getElementById('kg-editor-name');
+        if (nameInp) _kgSheet.editingDraft.label = nameInp.value.trim() || _kgSheet.editingDraft.label || 'Group';
+        const next = groups.slice();
+        if (_kgSheet.editingIdx >= 0 && _kgSheet.editingIdx < next.length) {
+          next[_kgSheet.editingIdx] = _kgSheet.editingDraft;
+        } else {
+          next.push(_kgSheet.editingDraft);
+        }
+        AmuxKeyGroups.save(next);
+        _kgSheet.view = 'list';
+        _kgSheet.editingIdx = -1;
+        _kgSheet.editingDraft = null;
+        renderKeyGroupsSheet();
+        renderAccessoryGroups();
+        return;
+      }
+      if (action === 'pick-slot') {
+        if (!Number.isFinite(slot) || slot < 0 || slot > 3) return;
+        // Persist the name input first so editor -> picker -> editor doesn't drop it.
+        const nameInp = document.getElementById('kg-editor-name');
+        if (nameInp && _kgSheet.editingDraft) _kgSheet.editingDraft.label = nameInp.value;
+        _kgSheet.pickingSlot = slot;
+        _kgSheet.view = 'picker';
+        _kgSheet.pickerTab = 'special';
+        _kgSheet.literalDraft = '';
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'tab') {
+        const tab = t.getAttribute('data-tab');
+        if (tab === 'special' || tab === 'mods' || tab === 'literal') {
+          // Persist literal draft if leaving the literal tab.
+          if (_kgSheet.pickerTab === 'literal') {
+            const li = document.getElementById('kg-picker-literal');
+            if (li) _kgSheet.literalDraft = li.value;
+          }
+          _kgSheet.pickerTab = tab;
+          renderKeyGroupsSheet();
+        }
+        return;
+      }
+      if (action === 'pick-key') {
+        const send  = t.getAttribute('data-send');
+        const label = t.getAttribute('data-label') || send;
+        if (!_kgSheet.editingDraft) return;
+        const slotIdx = _kgSheet.pickingSlot;
+        if (slotIdx < 0 || slotIdx > 3) return;
+        _kgSheet.editingDraft.keys[slotIdx] = {
+          label: label,
+          send: send,
+          danger: (send === 'C-c'),
+        };
+        _kgSheet.view = 'editor';
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'pick-literal') {
+        const li = document.getElementById('kg-picker-literal');
+        const v = li ? li.value : (_kgSheet.literalDraft || '');
+        if (!v) { showToast('Type at least one character'); return; }
+        const slotIdx = _kgSheet.pickingSlot;
+        if (slotIdx < 0 || slotIdx > 3 || !_kgSheet.editingDraft) return;
+        _kgSheet.editingDraft.keys[slotIdx] = {
+          label: v.length > 4 ? (v.slice(0, 3) + '…') : v,
+          literal: v,
+        };
+        _kgSheet.view = 'editor';
+        renderKeyGroupsSheet();
+        return;
+      }
+      if (action === 'back-to-editor') {
+        _kgSheet.view = 'editor';
+        renderKeyGroupsSheet();
+        return;
+      }
+    });
+  }
+
+  // Render accessory the first time the input is focused (lazy).
+  // Patches _dockOnInputFocus to call renderAccessoryGroups() once.
+  // Runs AFTER the P0-5 fallback wrapper (which lives at the bottom of the
+  // script) by also running on _liveTerm mount; whichever wraps last wins,
+  // but both are idempotent.
+  (function() {
+    const orig = window._dockOnInputFocus;
+    window._dockOnInputFocus = function() {
+      try { if (typeof orig === 'function') orig.apply(this, arguments); } catch (e) {}
+      try {
+        const acc = document.getElementById('focus-accessory');
+        // Re-render if empty OR if it doesn't yet contain our lane.
+        if (acc && !acc.querySelector('.acc-lane')) renderAccessoryGroups();
+      } catch (e) {}
+    };
+  })();
+
   // Quick paste helper
   window._focusPasteFromClipboard = async function() {
     try {
