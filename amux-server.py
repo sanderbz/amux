@@ -26122,9 +26122,15 @@ function _updateResetBtn() {
 function setLayoutMode(mode) {
   layoutMode = mode;
   localStorage.setItem('amux_layout', mode);
-  document.getElementById('tile-list-btn').classList.toggle('active', mode === 'list');
-  document.getElementById('tile-group-btn').classList.toggle('active', mode === 'group');
-  document.getElementById('tile-grid-btn').classList.toggle('active', mode === 'grid');
+  // tile-grid-btn is hidden on mobile via .tile-grid-only and other layout
+  // tile buttons can be absent during early hydration. Guard each lookup
+  // so a single missing node doesn't crash the rest of the layout switch.
+  const _ll = document.getElementById('tile-list-btn');
+  const _lg = document.getElementById('tile-group-btn');
+  const _lr = document.getElementById('tile-grid-btn');
+  if (_ll) _ll.classList.toggle('active', mode === 'list');
+  if (_lg) _lg.classList.toggle('active', mode === 'group');
+  if (_lr) _lr.classList.toggle('active', mode === 'grid');
   const cards = document.querySelector('.cards');
   if (cards) cards.classList.toggle('grid-mode', mode === 'grid');
   if (mode === 'group') destroySortable();
