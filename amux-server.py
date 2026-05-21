@@ -14255,6 +14255,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .focus-subtab-pill,
     .dock-plus, .dock-send,
     .bd-tab,
+    .board-detail-tab,
+    .board-edit-actions button,
+    .wt-btn,
+    .wt-skip,
     .btn {
       min-width: 44px; min-height: 44px;
     }
@@ -17994,6 +17998,16 @@ function _checkSessionTransitions(newData) {
   }
 }
 
+// True for "aborted by reload / navigation / cancel" errors — these are
+// expected during page lifecycle and should not be logged or counted as
+// real network failures.
+function _isTransientFetchError(e) {
+  if (!e) return false;
+  if (e.name === 'AbortError') return true;
+  const m = String(e.message || e);
+  return /Failed to fetch|Load failed|NetworkError|aborted|cancelled/i.test(m);
+}
+
 async function fetchSessions() {
   try {
     const r = await fetch(API + '/api/sessions');
@@ -18012,6 +18026,7 @@ async function fetchSessions() {
       _fetchGitBranches(sessions);
     }
   } catch(e) {
+    if (_isTransientFetchError(e)) return;  // swallow reload/abort races
     console.error('fetch sessions:', e);
     consecutiveFailures++;
     if (consecutiveFailures >= 2 || navigator.onLine === false) {
@@ -28004,6 +28019,7 @@ async function fetchBoard() {
       renderBoard();
     }
   } catch(e) {
+    if (_isTransientFetchError(e)) return;  // swallow reload/abort races
     console.error('fetch board:', e);
     consecutiveFailures++;
     if (consecutiveFailures >= 2 || navigator.onLine === false) {
