@@ -35699,8 +35699,24 @@ async function _jrnlSaveConfig() {
         // onclose will fire next and trigger reconnect
         if (this.state !== 'reconnecting') this._setStatus('offline');
       };
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
         if (this._destroyed) return;
+        // Server-initiated permanent close: stop hammering.
+        //  1011 = internal error / "session not found"
+        //  1008 = policy violation (auth, origin)
+        //  1013 = try again later / too many subs
+        //  4001 = intentional close from server
+        const code = ev && ev.code;
+        if (code === 1011 || code === 1008 || code === 1013 || code === 4001) {
+          this._setStatus('offline');
+          // Surface message in terminal so user sees why it stopped.
+          try {
+            const reason = (ev && ev.reason) ? String(ev.reason) : '';
+            this.term.write('\r\n\x1b[33m[session stopped'
+              + (reason ? (': ' + reason) : '') + ']\x1b[0m\r\n');
+          } catch (_) {}
+          return;
+        }
         this._scheduleReconnect();
       };
     }
