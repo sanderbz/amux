@@ -16639,6 +16639,184 @@ window.Palette = {
   }, true);  // capture-phase
 })();
 
+// ═══════════════════════════════════════════════════════════════════════
+// HOVER-TO-TYPE — overview cards as live mini-terminals you can type into
+//
+// On desktop: when the mouse dwells 200ms over a session card, the card
+// arms ("hover-ready"). Any printable keypress (no Cmd/Ctrl/Alt) is
+// captured and buffered; Enter sends the buffer to that session via the
+// existing /api/sessions/{name}/send endpoint, Esc cancels, Backspace edits.
+//
+// Buffers persist across SSE re-renders (re-keyed by session name), so a
+// 2s SSE refresh in the middle of typing does not lose your input.
+//
+// Disabled on touch devices (no hover). Pulse-when-waiting still works.
+// Coordinates with the palette agent: palette owns Cmd+K, we own printable
+// keys without modifiers.
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  // Skip entirely on touch devices.
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+  const HoverType = {
+    hoveredCard: null,
+    hoveredName: null,
+    dwellTimer: null,
+    armed: false,
+    // session name -> buffered string. Surviving re-renders is the whole point.
+    buffers: new Map(),
+    DWELL_MS: 200,
+  };
+  window._HoverType = HoverType;
+
+  function _typingTarget(t) {
+    if (!t) return false;
+    const tag = (t.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (t.isContentEditable) return true;
+    return false;
+  }
+
+  function _clearArm() {
+    clearTimeout(HoverType.dwellTimer);
+    HoverType.dwellTimer = null;
+    HoverType.armed = false;
+    if (HoverType.hoveredCard) {
+      HoverType.hoveredCard.classList.remove('hover-ready', 'hover-typing');
+    }
+  }
+
+  function _renderBuffer(card, name) {
+    if (!card) return;
+    const slot = card.querySelector('.card-hover-hint .hover-buffer');
+    const buf = HoverType.buffers.get(name) || '';
+    if (slot) slot.textContent = buf;
+    if (buf) card.classList.add('hover-typing'); else card.classList.remove('hover-typing');
+  }
+
+  function _setHoveredCard(card) {
+    if (card === HoverType.hoveredCard) return;
+    _clearArm();
+    HoverType.hoveredCard = card;
+    HoverType.hoveredName = card ? (card.dataset.session || null) : null;
+    if (!card) return;
+    // Only arm running sessions — typing into a stopped session is meaningless.
+    if (card.dataset.running !== '1') return;
+    HoverType.dwellTimer = setTimeout(() => {
+      // The card may have been re-rendered away while we were waiting.
+      if (!document.body.contains(HoverType.hoveredCard)) {
+        HoverType.hoveredCard = document.querySelector('.card[data-session="' + CSS.escape(HoverType.hoveredName) + '"]');
+        if (!HoverType.hoveredCard) return;
+      }
+      HoverType.armed = true;
+      HoverType.hoveredCard.classList.add('hover-ready');
+      // Re-paint any in-flight buffer (e.g. partial text from before re-render).
+      _renderBuffer(HoverType.hoveredCard, HoverType.hoveredName);
+    }, HoverType.DWELL_MS);
+  }
+
+  // Re-resolve the hovered card after every re-render so the buffered text
+  // and arm state attach to the freshly-rendered DOM node.
+  HoverType.reattachAfterRender = function() {
+    if (!HoverType.hoveredName) return;
+    const card = document.querySelector('.card[data-session="' + CSS.escape(HoverType.hoveredName) + '"]');
+    HoverType.hoveredCard = card;
+    if (!card) return;
+    if (HoverType.armed) {
+      card.classList.add('hover-ready');
+      _renderBuffer(card, HoverType.hoveredName);
+    }
+  };
+
+  document.addEventListener('mouseover', (e) => {
+    const card = e.target.closest('.card[data-session]');
+    if (!card) {
+      // Mouse left the card universe — clear hover state.
+      if (HoverType.hoveredCard && !HoverType.hoveredCard.contains(e.target)) {
+        _setHoveredCard(null);
+      }
+      return;
+    }
+    _setHoveredCard(card);
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    // mouseout fires on every internal element transition. Only act when we
+    // truly leave the card (relatedTarget is outside the current card).
+    if (!HoverType.hoveredCard) return;
+    const to = e.relatedTarget;
+    if (to && HoverType.hoveredCard.contains(to)) return;
+    if (to && to.closest && to.closest('.card[data-session]') === HoverType.hoveredCard) return;
+    _setHoveredCard(null);
+  });
+
+  async function _flushBuffer(name) {
+    const buf = (HoverType.buffers.get(name) || '').trim();
+    HoverType.buffers.set(name, '');
+    if (HoverType.hoveredCard && HoverType.hoveredName === name) {
+      _renderBuffer(HoverType.hoveredCard, name);
+    }
+    if (!buf) return;
+    try {
+      await fetch('/api/sessions/' + encodeURIComponent(name) + '/send', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: buf}),
+      });
+      if (typeof window.showToast === 'function') {
+        window.showToast('Sent to ' + name);
+      }
+    } catch (err) {
+      console.error('hover-type send failed:', err);
+      // Put the buffer back so the user can retry.
+      HoverType.buffers.set(name, buf);
+      if (HoverType.hoveredCard && HoverType.hoveredName === name) {
+        _renderBuffer(HoverType.hoveredCard, name);
+      }
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!HoverType.armed || !HoverType.hoveredCard) return;
+    if (_typingTarget(document.activeElement)) return;
+    if (_typingTarget(e.target)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Don't intercept while the palette / a modal is open.
+    if (window.Palette && window.Palette.isOpen && window.Palette.isOpen()) return;
+    const ov = document.getElementById('peek-overlay');
+    if (ov && ov.classList.contains('active')) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    const name = HoverType.hoveredName;
+    if (!name) return;
+    // Recognize the keys we handle; ignore everything else.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      _flushBuffer(name);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      HoverType.buffers.set(name, '');
+      _renderBuffer(HoverType.hoveredCard, name);
+      return;
+    }
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const buf = HoverType.buffers.get(name) || '';
+      HoverType.buffers.set(name, buf.slice(0, -1));
+      _renderBuffer(HoverType.hoveredCard, name);
+      return;
+    }
+    if (e.key.length === 1) {
+      e.preventDefault();
+      const buf = HoverType.buffers.get(name) || '';
+      HoverType.buffers.set(name, buf + e.key);
+      _renderBuffer(HoverType.hoveredCard, name);
+      return;
+    }
+  }, true);  // capture-phase: run before per-card textareas
+})();
+
 // Connection & offline state
 let online = true;
 window.addEventListener('offline', () => setOnline(false));
@@ -17989,6 +18167,11 @@ function render() {
         c.style.animationDelay = Math.min(i * 30, 240) + 'ms';
         c.classList.add('sv-enter');
       });
+    }
+    // Re-attach hover-to-type state to freshly-rendered card so SSE refreshes
+    // mid-typing don't drop the buffer or scrub the arm/typing classes.
+    if (window._HoverType && window._HoverType.reattachAfterRender) {
+      window._HoverType.reattachAfterRender();
     }
   });
 }
