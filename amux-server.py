@@ -8543,14 +8543,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     transition: background 200ms ease, transform 200ms ease;
   }
   .card-status-dot[data-status="running"],
-  .card-status-dot[data-status="active"]  { background: #3fb950; }
+  .card-status-dot[data-status="active"]  { background: var(--tint-green); }
   .card-status-dot[data-status="waiting"] {
-    background: #0a84ff;
+    background: var(--tint-blue);
     animation: card-status-pulse 2s ease-in-out infinite;
   }
-  .card-status-dot[data-status="idle"]    { background: rgba(139,148,158,0.5); }
-  .card-status-dot[data-status="error"]   { background: #f85149; }
-  .card-status-dot[data-status="stopped"] { background: rgba(139,148,158,0.3); border: 1px solid rgba(139,148,158,0.5); }
+  .card-status-dot[data-status="idle"]    { background: var(--label-tertiary); box-shadow: 0 0 0 1px var(--label-quaternary); }
+  .card-status-dot[data-status="error"]   { background: var(--tint-red); }
+  .card-status-dot[data-status="stopped"] { background: transparent; border: 1px solid var(--label-tertiary); }
   @keyframes card-status-pulse {
     0%, 100% { opacity: 0.55; transform: scale(1); }
     50%      { opacity: 1.0;  transform: scale(1.4); }
