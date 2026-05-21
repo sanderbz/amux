@@ -9377,7 +9377,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
   .wt-skip:hover { color: var(--text); }
   @media (max-width: 600px) {
-    #wt-tooltip { max-width: calc(100vw - 32px); padding: 16px; }
+    #wt-tooltip {
+      max-width: none; padding: 16px;
+      max-height: 50dvh;
+      overflow-y: auto;
+    }
   }
 
   /* ── DevTools Panel ── */
@@ -31405,6 +31409,23 @@ async function pullFromRemote(btn) {
         '</div>' +
       '</div>';
 
+    // On phones, anchor the tooltip to the bottom of the viewport so it
+    // never covers the spotlighted UI or blocks the dashboard underneath.
+    if (window.innerWidth <= 600) {
+      tooltip.style.left = '12px';
+      tooltip.style.right = '12px';
+      tooltip.style.top = 'auto';
+      tooltip.style.maxWidth = 'none';
+      tooltip.style.width = 'auto';
+      // Reserve room for the mobile bottom tab bar + safe-area inset.
+      tooltip.style.bottom = 'calc(72px + env(safe-area-inset-bottom, 0px) + 12px)';
+      return;
+    }
+    // Reset any phone-mode overrides on desktop.
+    tooltip.style.right = '';
+    tooltip.style.bottom = '';
+    tooltip.style.maxWidth = '';
+    tooltip.style.width = '';
     // Position tooltip
     var tw = tooltip.offsetWidth;
     var th = tooltip.offsetHeight;
