@@ -14083,9 +14083,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       gap: var(--s-2);
     }
     .header-row h1 { font-size: var(--text-title3); }
-    .header-add-btn { width: 38px; height: 38px; min-width: 38px; }
-    .settings-btn, #notif-btn { width: 38px; height: 38px; min-width: 38px; }
-    .btn-active { min-height: 34px; height: 34px; padding: 0 10px; }
+    .header-add-btn { width: 44px; height: 44px; min-width: 44px; }
+    .settings-btn, #notif-btn { width: 44px; height: 44px; min-width: 44px; }
+    .btn-active { min-height: 44px; height: 44px; padding: 0 12px; }
+    /* WCAG 2.5.5 / Apple HIG: every interactive element ≥44×44 on touch */
+    .tile-btn,
+    #log-search-btn,
+    .peek-tab,
+    .card-menu-btn,
+    .card .header-icon-btn,
+    .session-card .header-icon-btn,
+    .focus-kbd-btn {
+      min-width: 44px; min-height: 44px;
+    }
+    .search-input { min-height: 44px; }
 
     /* Hide the top tab bar on mobile — bottom tab bar takes over */
     .tab-bar-outer { display: none; }
