@@ -21497,29 +21497,37 @@ function _syncPeekOverlayToVisualViewport() {
     // still has to happen — we just don't animate it. Stacking VTs is what
     // produces the duplicate-name console spam + invalid-state abort.
     if (window._vtInFlight) {
-      console.log('[_focusRunVT] skipping — vt in flight');
       fn();
       return;
     }
 
-    // Tag with a UNIQUE name per attempt as belt-and-braces.
+    // Unique name per attempt as belt-and-braces (in case cleanup races).
     const vtName = 'focus-card-' + (++window._vtCounter);
 
-    let card = null;
-    if (cardName) {
-      card = document.querySelector('.card[data-session="' + cssEscape(cardName) + '"]')
+    function _findCard() {
+      if (!cardName) return null;
+      return document.querySelector('.card[data-session="' + cssEscape(cardName) + '"]')
           || document.querySelector('[data-session="' + cssEscape(cardName) + '"]');
     }
-    if (card) {
-      card.style.viewTransitionName = vtName;
-    }
+
+    // Resolve OPENING vs CLOSING by looking at body[data-focus-mode] right now.
+    // Open: card visible now (OLD), overlay visible after fn (NEW).
+    // Close: overlay visible now (OLD), card visible after fn (NEW).
+    const isOpening = !document.body.hasAttribute('data-focus-mode');
+
     const ov = document.getElementById('peek-overlay');
-    if (ov) ov.style.viewTransitionName = vtName;
+    let initialCard = _findCard();
+
+    // BEFORE snapshot: tag the OLD element only (one element per name).
+    if (isOpening) {
+      if (initialCard) initialCard.style.viewTransitionName = vtName;
+    } else {
+      if (ov) ov.style.viewTransitionName = vtName;
+    }
 
     function _clearTags() {
-      if (card) card.style.viewTransitionName = '';
+      if (initialCard) initialCard.style.viewTransitionName = '';
       if (ov) ov.style.viewTransitionName = '';
-      // Defensive: also nuke any stragglers (e.g. re-rendered cards).
       _clearAllVtTags();
       window._vtInFlight = false;
     }
@@ -21528,17 +21536,34 @@ function _syncPeekOverlayToVisualViewport() {
       let vt;
       window._vtInFlight = true;
       try {
-        vt = document.startViewTransition(() => { fn(); });
+        vt = document.startViewTransition(() => {
+          // INSIDE the work callback: untag the OLD element, run the DOM
+          // update, then tag the NEW element. This way at NEW snapshot time
+          // only one element carries the name.
+          if (isOpening) {
+            if (initialCard) initialCard.style.viewTransitionName = '';
+          } else {
+            if (ov) ov.style.viewTransitionName = '';
+          }
+          fn();
+          // Tag the NEW element (post-DOM-update)
+          if (isOpening) {
+            if (ov) ov.style.viewTransitionName = vtName;
+          } else {
+            // After close, the source card may have re-rendered — re-query.
+            const newCard = _findCard();
+            if (newCard) {
+              initialCard = newCard;
+              newCard.style.viewTransitionName = vtName;
+            }
+          }
+        });
       } catch (e) {
-        // Aborted/invalid state — run the work synchronously and clean up.
         _clearTags();
         fn();
         return;
       }
-      // vt.finished resolves when the transition completes; .ready can reject
-      // on abort. Use .finally + .catch on both so we always clear tags.
       vt.finished.catch(() => {}).finally(_clearTags);
-      // Also guard against the rare case where finally never fires (browser bug).
       setTimeout(_clearTags, 800);
     } else {
       fn();
