@@ -8494,19 +8494,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
      with the palette agent's concurrent edits.
      ══════════════════════════════════════════════════════════════════════ */
   .card-mini-term {
-    color: var(--dim); font-size: 0.72rem;
+    color: var(--label-tertiary);
+    font-size: var(--text-caption2);
     font-family: "SF Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
     white-space: pre; overflow: hidden;
-    background: rgba(1,4,9,0.55); border-radius: 6px;
-    padding: 8px 10px; margin-bottom: 8px; line-height: 1.4;
-    height: 152px; max-height: 152px;
+    background: rgba(1,4,9,0.45); border-radius: var(--r-sm);
+    padding: 6px 10px; margin-bottom: 6px; line-height: 1.35;
+    /* Cap to ~5 lines @ 11px so the card reads identity-first, preview-second */
+    height: 80px; max-height: 80px;
     position: relative;
     will-change: transform;
     cursor: pointer;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
-            mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 100%);
+    opacity: 0.78;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 12px), transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 12px), transparent 100%);
   }
-  body.light .card-mini-term { background: #1c2128; color: #cdd9e5; }
+  body.light .card-mini-term { background: rgba(28,33,40,0.92); color: rgba(205,217,229,0.82); }
+  .card.expanded .card-mini-term {
+    height: 168px; max-height: 168px;
+    opacity: 1;
+  }
   .card-mini-term-body {
     display: block; pointer-events: none;
     width: 100%; max-width: 100%;
@@ -8638,7 +8645,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   }
 
   @media (max-width: 600px) {
-    .card-mini-term { height: 112px; max-height: 112px; font-size: 0.7rem; }
+    .card-mini-term { height: 72px; max-height: 72px; font-size: var(--text-caption2); }
+    .card.expanded .card-mini-term { height: 132px; max-height: 132px; }
     .card-hover-hint { display: none; }
   }
 
