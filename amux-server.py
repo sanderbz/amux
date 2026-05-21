@@ -7974,6 +7974,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quilljs-markdown@latest/dist/quilljs-markdown-common-style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<!-- Apple-grade redesign: Motion One for spring physics + Lucide for icons -->
+<script src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -7982,6 +7985,176 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     --green: #3fb950; --red: #f85149; --yellow: #d29922;
     --cyan: #39d2c0;
   }
+  /* ════════════════════════════════════════════════════════════════════════
+     APPLE-GRADE DESIGN TOKENS (Wave 0 foundation)
+     iOS 18 / macOS Tahoe aligned. See DESIGN_SPEC.md for usage rules.
+     ════════════════════════════════════════════════════════════════════════ */
+  :root {
+    /* ── Typography ── */
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+    --text-caption2: 0.6875rem;
+    --text-caption1: 0.75rem;
+    --text-footnote: 0.8125rem;
+    --text-subhead:  0.9375rem;
+    --text-callout:  1rem;
+    --text-body:     1.0625rem;
+    --text-headline: 1.0625rem;
+    --text-title3:   1.25rem;
+    --text-title2:   1.375rem;
+    --text-title1:   1.75rem;
+    --text-large:    2.125rem;
+    --weight-regular: 400;
+    --weight-medium:  500;
+    --weight-semibold: 600;
+    --weight-bold:    700;
+    /* ── Spacing (4pt grid) ── */
+    --s-1: 0.25rem; --s-2: 0.5rem; --s-3: 0.75rem;
+    --s-4: 1rem;    --s-5: 1.25rem; --s-6: 1.5rem;
+    --s-8: 2rem;    --s-10: 2.5rem; --s-12: 3rem;
+    --s-16: 4rem;   --s-20: 5rem;
+    /* ── Radii ── */
+    --r-xs: 6px; --r-sm: 10px; --r-md: 14px;
+    --r-lg: 22px; --r-xl: 28px; --r-full: 9999px;
+    /* ── Surfaces (dark-default; light overridden in body.light) ── */
+    --bg-base:    #000000;
+    --bg-layer-1: #1c1c1e;
+    --bg-layer-2: #2c2c2e;
+    --bg-layer-3: #3a3a3c;
+    --bg-grouped: #1c1c1e;
+    --bg-tinted:  rgba(120,120,128,0.16);
+    /* ── Materials (translucent blur) ── */
+    --mat-thick:   rgba(28,28,30,0.78);
+    --mat-regular: rgba(28,28,30,0.60);
+    --mat-thin:    rgba(28,28,30,0.40);
+    --mat-ultra:   rgba(28,28,30,0.20);
+    /* ── Labels ── */
+    --label-primary:    rgba(255,255,255,1.00);
+    --label-secondary:  rgba(235,235,245,0.60);
+    --label-tertiary:   rgba(235,235,245,0.30);
+    --label-quaternary: rgba(235,235,245,0.16);
+    /* ── Tints (iOS system) ── */
+    --tint-blue:   #0a84ff;
+    --tint-green:  #30d158;
+    --tint-orange: #ff9f0a;
+    --tint-red:    #ff453a;
+    --tint-purple: #bf5af2;
+    --tint-pink:   #ff375f;
+    --tint-teal:   #64d2ff;
+    --tint-yellow: #ffd60a;
+    --tint-indigo: #5e5ce6;
+    /* ── Separators ── */
+    --sep-opaque:     rgba(56,56,58,1);
+    --sep-non-opaque: rgba(84,84,88,0.34);
+    /* ── Motion ── */
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-instant: 100ms;
+    --duration-fast:    200ms;
+    --duration-medium:  300ms;
+    --duration-slow:    500ms;
+    /* ── Shadows ── */
+    --shadow-sm:    0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md:    0 4px 16px rgba(0,0,0,0.4);
+    --shadow-lg:    0 12px 40px rgba(0,0,0,0.5);
+    --shadow-sheet: 0 -8px 32px rgba(0,0,0,0.6);
+    /* ── Z layers ── */
+    --z-base: 0; --z-elevated: 10; --z-sticky: 100;
+    --z-modal-backdrop: 900; --z-modal: 1000;
+    --z-toast: 1100; --z-tooltip: 1200;
+  }
+  body.light {
+    --bg-base:    #ffffff;
+    --bg-layer-1: #f2f2f7;
+    --bg-layer-2: #ffffff;
+    --bg-layer-3: #e5e5ea;
+    --bg-grouped: #f2f2f7;
+    --bg-tinted:  rgba(120,120,128,0.12);
+    --mat-thick:   rgba(255,255,255,0.78);
+    --mat-regular: rgba(255,255,255,0.60);
+    --mat-thin:    rgba(255,255,255,0.40);
+    --mat-ultra:   rgba(255,255,255,0.20);
+    --label-primary:    #000000;
+    --label-secondary:  rgba(60,60,67,0.60);
+    --label-tertiary:   rgba(60,60,67,0.30);
+    --label-quaternary: rgba(60,60,67,0.18);
+    --sep-opaque:     rgba(198,198,200,1);
+    --sep-non-opaque: rgba(60,60,67,0.29);
+    --shadow-sm:    0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md:    0 4px 16px rgba(0,0,0,0.10);
+    --shadow-lg:    0 12px 40px rgba(0,0,0,0.14);
+    --shadow-sheet: 0 -8px 32px rgba(0,0,0,0.18);
+  }
+  /* ════════════════════════════════════════════════════════════════════════
+     COMPONENT PRIMITIVES — use these everywhere
+     ════════════════════════════════════════════════════════════════════════ */
+  .surface {
+    background: var(--bg-layer-1);
+    border-radius: var(--r-md);
+    border: 1px solid var(--sep-non-opaque);
+  }
+  .surface-elevated { background: var(--bg-layer-2); box-shadow: var(--shadow-md); }
+  .surface-material {
+    background: var(--mat-regular);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
+  .btn-ios {
+    min-height: 44px;
+    padding: 0 var(--s-4);
+    border-radius: var(--r-sm);
+    font: var(--weight-semibold) var(--text-callout)/1 var(--font-sans);
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+    background: var(--bg-tinted); color: var(--label-primary);
+    border: none; cursor: pointer; user-select: none;
+    transition: background var(--duration-fast) var(--ease-standard),
+                transform var(--duration-instant) var(--ease-standard);
+  }
+  .btn-ios:hover { background: var(--bg-layer-3); }
+  .btn-ios:active { transform: scale(0.96); }
+  .btn-ios-primary { background: var(--tint-blue); color: white; }
+  .btn-ios-primary:hover { background: color-mix(in srgb, var(--tint-blue) 88%, white); }
+  .btn-ios-destructive { color: var(--tint-red); }
+  .btn-ios-ghost { background: transparent; }
+  .input-ios, .textarea-ios {
+    width: 100%; min-height: 44px;
+    padding: var(--s-3) var(--s-4);
+    background: var(--bg-layer-1);
+    border: 1px solid var(--sep-non-opaque);
+    border-radius: var(--r-md);
+    font: var(--text-body) var(--font-sans);
+    color: var(--label-primary);
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                background var(--duration-fast) var(--ease-standard);
+  }
+  .input-ios:focus, .textarea-ios:focus {
+    outline: none; border-color: var(--tint-blue); background: var(--bg-layer-2);
+  }
+  .chip-ios {
+    padding: 2px var(--s-2);
+    border-radius: var(--r-xs);
+    font: var(--weight-medium) var(--text-caption1)/1.4 var(--font-sans);
+    background: var(--bg-tinted); color: var(--label-secondary);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .chip-ios-success { background: color-mix(in srgb, var(--tint-green) 18%, transparent); color: var(--tint-green); }
+  .chip-ios-warning { background: color-mix(in srgb, var(--tint-orange) 18%, transparent); color: var(--tint-orange); }
+  .chip-ios-info    { background: color-mix(in srgb, var(--tint-blue) 18%, transparent); color: var(--tint-blue); }
+  .chip-ios-danger  { background: color-mix(in srgb, var(--tint-red) 18%, transparent); color: var(--tint-red); }
+  /* Reduce-motion respect */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+  /* View Transitions API hook — for cross-view animation when navigating tabs */
+  @supports (view-transition-name: none) {
+    ::view-transition-old(root), ::view-transition-new(root) {
+      animation-duration: 280ms; animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+  }
+  /* ════════════════════════════════════════════════════════════════════════
+     END Wave 0 foundation
+     ════════════════════════════════════════════════════════════════════════ */
   body.light {
     --bg: #ffffff; --card: #f6f8fa; --border: #d0d7de;
     --text: #1f2328; --dim: #656d76; --accent: #0969da;
