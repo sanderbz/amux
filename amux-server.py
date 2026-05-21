@@ -8808,12 +8808,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     white-space: nowrap;
   }
   .peek-copy-btn:active { background: var(--accent); color: #fff; }
-  .overlay-body a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-  .overlay-body a:active { color: #79c0ff; }
-  .overlay-body .file-link { color: var(--cyan); text-decoration: none; border-bottom: 1px dashed var(--cyan); cursor: pointer; }
-  .overlay-body .file-link:active { color: #79ead3; }
-  .overlay-body .md-link { color: var(--yellow); text-decoration: none; border-bottom: 1px dashed var(--yellow); cursor: pointer; }
-  .overlay-body .md-link:active { color: #e8c547; }
+  /* Terminal-pane links — match surrounding monospace; subtle underline reveals on hover only */
+  .overlay-body a,
+  .overlay-body .file-link,
+  .overlay-body .md-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted color-mix(in srgb, currentColor 30%, transparent);
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+  .overlay-body a:hover,
+  .overlay-body .file-link:hover,
+  .overlay-body .md-link:hover {
+    color: var(--tint-blue);
+    border-bottom-color: var(--tint-blue);
+  }
+  .overlay-body a:active,
+  .overlay-body .file-link:active,
+  .overlay-body .md-link:active { opacity: 0.7; }
   .overlay-status { color: var(--dim); font-size: 0.75rem; margin-top: 6px; flex-shrink: 0; text-align: center; }
   .scroll-lock-badge {
     position: sticky; bottom: 0; left: 0; right: 0;
